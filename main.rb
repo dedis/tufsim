@@ -29,13 +29,18 @@ OptionParser.new do |opts|
 end.parse!
 
 def main 
-    puts "[+] tufsim.rb with base = #{@options[:base]} & height =#{@options[:height]}"
+    puts "[+] tufsim.rb with base = #{@options[:base]} & height = #{@options[:height]}"
+    # instantiate mockup class
+    mockup = Mockup.new
+    mockup.connect
     ## first get the list of snapshots
-    snaps = Mockup.snapshots 
+    snaps = mockup.snapshots 
     ## construct the skiplist out of it
     skiplist = Skipchain::create_skiplist snaps, Skipchain::Config.new(@options[:base],@options[:height],@options[:head])
-    puts "Skiplist:"
-    print skiplist.to_s
+
+    updates = mockup.client_updates
+
+    mockup.close
 end
 
 main

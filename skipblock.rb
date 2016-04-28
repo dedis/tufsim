@@ -5,8 +5,7 @@ module Skipchain
     ## skipblock as a unit
     class Skipblock
         def initialize snapshot,height
-            @timestamp = snapshot.timestamp
-            @size = snapshot.size
+            @snapshot = snapshot
             @height = height
         end
         def to_s 
@@ -47,6 +46,7 @@ module Skipchain
         end
         Skiplist.new blocks
     end
+
 end
 
 
