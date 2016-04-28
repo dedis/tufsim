@@ -20,9 +20,11 @@ module Mockup
         print "[+] Connecting to server to retrieve snapshots..."
         Net::SSH.start(HOST,USER) do |ssh|
             ## print the size and shorten the name to only the timestamp
-            cmd = "cd #{SNAPSHOT_PATH} && " + 'stat -c "%s %n" * | sed "s/snapshot\.\(.*\)\.json/\1/"'
+            cmd = "cd #{SNAPSHOT_PATH} && " + 'stat -c "%s %n" *json | sed "s/snapshot\.\(.*\)\.json/\1/"'
             output = ssh.exec!(cmd)
         end
+        #special treatment because of the firs directory "packages"
+        
         ## populate the list of snapshots
         output.each_line do |line|
             size, time = line.split

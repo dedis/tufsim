@@ -16,8 +16,11 @@ OptionParser.new do |opts|
     opts.on("-b","--base BASE",'Base of the skiplist') do |b|
         @options[:base] = b.to_i
     end
-    opts.on("-b","--heigh HEIGHT","Maximum height of the skiplist") do |h|
+    opts.on("-l","--heigh HEIGHT","Maximum height of the skiplist") do |h|
         @options[:height] = h.to_i
+    end
+    opts.on("-n","--head NUMBER","Takes only the first NUMBER snapshots") do |n|
+        @options[:head] = n.to_i
     end
     opts.on('-h', '--help', 'Displays Help') do
         puts opts
@@ -29,9 +32,10 @@ def main
     puts "[+] tufsim.rb with base = #{@options[:base]} & height =#{@options[:height]}"
     ## first get the list of snapshots
     snaps = Mockup.snapshots 
-
     ## construct the skiplist out of it
-
+    skiplist = Skipchain::create_skiplist snaps, Skipchain::Config.new(@options[:base],@options[:height],@options[:head])
+    puts "Skiplist:"
+    print skiplist.to_s
 end
 
 main
