@@ -38,7 +38,7 @@ def main
     ## construct the skiplist out of it
     skiplist = Skipchain::create_skiplist snaps, Skipchain::Config.new(@options[:base],@options[:height],@options[:head])
 
-    updates = mockup.client_updates
+    updates = mockup.client_updates skiplist.mapping_client_update()
 
     mockup.close
 end

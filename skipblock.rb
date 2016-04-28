@@ -12,6 +12,9 @@ module Skipchain
             #s = @timestamp.to_s + " | " + @size.to_s 
             0.upto(@height.to_i-1).map{ "O" }.join(" -- ")
         end
+        def timestamp
+            @snapshot.timestamp
+        end
     end
 
     ## thie whole skiplist (contains every skipblock)
@@ -26,6 +29,30 @@ module Skipchain
                 sum += "\t: |\n"
             end
         end
+    
+        ## map_client_update returns a function to map the timestamp of the client updates to the
+        #nearest one from the skipblocks
+        def mapping_client_update 
+            last_id = 0
+            size = @skipblocks.size
+            Proc.new do |ts|
+                last_ts = @skipblocks[last_id].timestamp
+                last_id.upto(size-1).each do |id| 
+                    block = @skipblocks[id]
+                    ## if its the last then returns this one
+                    next block.timestamp if id == size-1
+
+                    ## otherwise check the next one in the list
+                    nextBlock = @skipblocks[id+1]
+                    diff = (ts-nextBlock.timestamp)
+                    if diff < 0  
+                        last_id = id
+                        next block
+                    end
+                end
+            end
+        end
+
     end 
 
     ## a skipchain has a fixed base and a fixed maximum height
@@ -46,6 +73,8 @@ module Skipchain
         end
         Skiplist.new blocks
     end
+
+    
 
 end
 
