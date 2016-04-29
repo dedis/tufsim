@@ -42,12 +42,12 @@ def new_mockup
     case @options[:type] 
     when :local
         m = Mockup::Local.new
-        mockup.packages_size
+        m.packages_size
         yield m
     when :ssh
         m = Mockuo::SSH.new
         m.connect
-        mockup.packages_size
+        m.packages_size
         yield m
         m.close
     else
