@@ -38,7 +38,7 @@ end
 def main 
     puts "[+] Tufsim.rb <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
     # instantiate mockup class
-    mockup = Mockup.new
+    mockup = Mockup::SSH.new
     mockup.connect
     ## first get the list of snapshots
     snaps = mockup.snapshots 
