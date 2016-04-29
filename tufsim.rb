@@ -13,7 +13,7 @@ DEFAULT_BASE = 2
 DEFAULT_HEIGHT = 2
 DEFAULT_OUTPUT = "result.csv"
 
-@options = {:base => DEFAULT_BASE, :height => DEFAULT_HEIGHT, :type => :local
+@options = {:base => DEFAULT_BASE, :height => DEFAULT_HEIGHT, :type => :local,
             :out => DEFAULT_OUTPUT }
 
 OptionParser.new do |opts|
