@@ -70,6 +70,7 @@ module Mockup
              next unless v.size == 1; 
              countUpdate -= v.size
              h.delete(k)
+             h
         end if filtering
         puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
         return clientsMap
