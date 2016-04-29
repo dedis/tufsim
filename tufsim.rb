@@ -3,6 +3,7 @@
 #
 
 require 'optparse'
+require 'date'
 
 require_relative 'skipblock'
 require_relative 'mockup'
@@ -10,8 +11,10 @@ require_relative 'processor'
 
 DEFAULT_BASE = 2
 DEFAULT_HEIGHT = 2
+DEFAULT_OUTPUT = "result.csv"
 
-@options = {:base => DEFAULT_BASE, :height => DEFAULT_HEIGHT, :type => :local}
+@options = {:base => DEFAULT_BASE, :height => DEFAULT_HEIGHT, :type => :local
+            :out => DEFAULT_OUTPUT }
 
 OptionParser.new do |opts|
     opts.banner = "Usage tufsim.rb <processor> [options]"
@@ -26,6 +29,9 @@ OptionParser.new do |opts|
     end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
+    end
+    opts.on("-o","--out FILE","File to output result") do |o|
+        @options[:out] = o
     end
     opts.on('-h', '--help', 'Displays Help') do
         puts opts
@@ -57,6 +63,7 @@ end
 
 def main 
     puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
+    result = nil
     new_mockup do |mockup| 
         ## first get the list of snapshots
         snaps = mockup.snapshots 
@@ -78,6 +85,15 @@ def main
             processor = Processor::OneLevel.new mockup,updates,skiplist
         end
         result = processor.process
+    end
+    puts "[+] Processing terminated"
+    ## write to file
+    File.open(@options[:out],"w") do |f|
+        f.write "time, cumul_bandwith_#{@options[:processor]}\n"         
+        result.each do |k,v| 
+            d = Time.at(k).utc.to_datetime
+            f.write "#{d.strftime("%Y-%m-%d %H:%M:%S")}, #{v}\n" }
+        end
     end
 end
 
