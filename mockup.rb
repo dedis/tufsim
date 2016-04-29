@@ -1,5 +1,3 @@
-require 'net/ssh'
-require 'net/scp'
 
 ## define snapshot  info struct, name is the filename
 Struct.new("Snapshot",:timestamp,:name)
@@ -138,6 +136,9 @@ module Mockup
     end
 
     class SSH
+        require 'net/ssh'
+        require 'net/scp'
+        
         include Mockup
 
         def initialize
