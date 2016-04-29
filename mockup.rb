@@ -67,10 +67,10 @@ module Mockup
         end
         before = countUpdate
         clientsMap.inject(clientsMap) do |h,(k,v)| 
-             next unless v.size == 1; 
-             countUpdate -= v.size
+             next h unless v.size == 1 
+             countUpdate -= 1
              h.delete(k)
-             h
+             next h
         end if filtering
         puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
         return clientsMap
