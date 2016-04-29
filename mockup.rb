@@ -35,15 +35,24 @@ module Mockup
         @packages
     end
 
-    ## store in memory the list of all snapshots files
-    def analyze_snapshots_list output
-        ## populate the list of snapshots
-        snapshots = []
-        output.each_line do |fname|
-            time = fname.match(/snapshot\.(.*)\.json/)[1]
-            snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
-        end
-        snapshots 
+    def compute_snapshots_list
+        @snapshots ||= begin
+                           snapshots = []
+                           output = ""
+                           ## print the size and shorten the name to only the timestamp
+                           cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
+                           output = yield cmd
+                           snapshots = analyze_snapshots_list output
+                           puts "[+] #{snapshots.size} snapshots retrieved from server"
+                           snapshots
+                           ## populate the list of snapshots
+                           snapshots = []
+                           output.each_line do |fname|
+                               time = fname.match(/snapshot\.(.*)\.json/)[1]
+                               snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
+                           end
+                           snapshots
+                       end
     end
 
 
@@ -95,19 +104,10 @@ module Mockup
         def initialize
         end 
 
-       
+
         def snapshots
-            @snapshots ||= begin
-                               snapshots = []
-                               output = ""
-                               ## print the size and shorten the name to only the timestamp
-                               cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
-                               output = @ssh.exec!(cmd)
-                               snapshots = analyze_snapshots_list output
-                               puts "[+] #{snapshots.size} snapshots retrieved from server"
-                               snapshots
-                           end
-        end 
+            compute_snapshots_list { |cmd| `#{cmd}` }
+        end
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
@@ -149,16 +149,11 @@ module Mockup
         ## retrieve the snapshots info from the 23.5gb compressed files hosted on our server
         def snapshots
             abort("[-] Not connected to server") if @ssh.nil?
-            @snapshots ||= begin
-                               snapshots = []
-                               output = ""
-                               ## print the size and shorten the name to only the timestamp
-                               cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
-                               output = @ssh.exec!(cmd)
-                               snapshots = analyze_snapshots_list output
-                               puts "[+] #{snapshots.size} snapshots retrieved from server"
-                               snapshots
-                           end
+            compute_snapshots_list do |cmd| 
+                out = @ssh.exec!(cmd) 
+                puts "[+] #{snapshots.size} snapshots retrieved from server"
+                out
+            end
         end
 
         ## retrieve the client updates info, stores it locally

@@ -45,7 +45,7 @@ def new_mockup
         m.packages_size
         yield m
     when :ssh
-        m = Mockuo::SSH.new
+        m = Mockup::SSH.new
         m.connect
         m.packages_size
         yield m
