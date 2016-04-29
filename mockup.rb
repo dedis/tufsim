@@ -42,15 +42,13 @@ module Mockup
                            ## print the size and shorten the name to only the timestamp
                            cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
                            output = yield cmd
-                           snapshots = analyze_snapshots_list output
-                           puts "[+] #{snapshots.size} snapshots retrieved from server"
-                           snapshots
                            ## populate the list of snapshots
                            snapshots = []
                            output.each_line do |fname|
                                time = fname.match(/snapshot\.(.*)\.json/)[1]
                                snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
                            end
+                           puts "[+] #{snapshots.size} snapshots retrieved from server"
                            snapshots
                        end
     end
