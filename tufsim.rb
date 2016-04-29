@@ -56,7 +56,7 @@ def new_mockup
 end
 
 def main 
-    puts "[+] Tufsim.rb (#{@options[:type]})<#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
+    puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
     new_mockup do |mockup| 
         ## first get the list of snapshots
         snaps = mockup.snapshots 

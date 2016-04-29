@@ -97,7 +97,6 @@ module Mockup
 
        
         def snapshots
-            abort("[-] Not connected to server") if @ssh.nil?
             @snapshots ||= begin
                                snapshots = []
                                output = ""
