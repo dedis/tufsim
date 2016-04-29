@@ -53,9 +53,8 @@ module Mockup
                        end
     end
 
-
     ## store in memory the update of all clients
-    def analyze_client_update_file  fname, mapping
+    def analyze_client_update_file  fname, mapping, filtering = true
         abort("[-] Client log file absent.") unless File.exists? fname
         ## hash[ip] = timestamps
         clientsMap = Hash.new { |h,k| h[k] = [] }
@@ -66,6 +65,7 @@ module Mockup
             clientsMap[ip.gsub(" ","").chomp] << time
             countUpdate += 1
         end
+        clientsMap.inject(clientsMap) { |h,(k,v)| h.delete(k) if v.size == 1; h }
         puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate} updates"
         return clientsMap
     end
