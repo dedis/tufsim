@@ -65,8 +65,13 @@ module Mockup
             clientsMap[ip.gsub(" ","").chomp] << time
             countUpdate += 1
         end
-        clientsMap.inject(clientsMap) { |h,(k,v)| h.delete(k) if v.size == 1; h }
-        puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate} updates"
+        before = countUpdate
+        clientsMap.inject(clientsMap) do |h,(k,v)| 
+             next unless v.size == 1; 
+             countUpdate -= v.size
+             h.delete(k)
+        end if filtering
+        puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
         return clientsMap
     end
 
