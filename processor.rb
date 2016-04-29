@@ -19,6 +19,9 @@ module Processor
         end
         bytes
     end
+
+
+
     ## OneLevel process skipblock at the level 0
     ## -> simulation of a client that must retrieve every skipblock until the
     #right one on the level 0
@@ -32,10 +35,24 @@ module Processor
             @skiplist = skiplist
         end
 
+        def processOneLevel
+            process do  |base_snap, next_snap|
+                ## size of all the new packages that must have been
+                #downloaded
+                bytes = get_diff base_snap,next_snap
+                ## # of skipblocks that must be traversed between the two
+                # 0-level
+                blocks = @skiplist.timestamps[next_snap.timestamp] - @skiplist.timestamps[base_snap.timestamp]
+                total = bytes + blocks * SIG_SIZE
+                total
+            end
+        end
+
+
         ## process returns hashmap with
         ## KEYS => timestamp of snapshots 
         #  VALUES => cumulative bandwitdth consumption by clients
-        def process 
+        def process
             puts "[+] OneLevel processor starting"
             ## hash containing all values for all clients per timestamp that will
             #be averaged at the end
@@ -64,14 +81,8 @@ module Processor
                     base_snap = @skiplist[base_ts]
                     next_snap = @skiplist[next_ts]
 
-                    ## size of all the new packages that must have been
-                    #downloaded
-                    bytes = get_diff base_snap,next_snap
-                    ## # of skipblocks that must be traversed between the two
-                    # 0-level                    
-                    blocks = @skiplist.timestamps[next_ts] - @skiplist.timestamps[base_ts]
+                    total = yield base_snap, next_snap
 
-                    total = bytes + blocks * SIG_SIZE          
                     h[next_ts] << total
                     base_ts = next_ts
                 end

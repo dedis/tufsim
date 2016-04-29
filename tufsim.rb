@@ -61,7 +61,7 @@ def main
     when "onelevel"
         processor = Processor::OneLevel.new mockup,updates,skiplist
     end
-    result = processor.process
+    result = processor.processOneLevel
     mockup.close
 end
 
