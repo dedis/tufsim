@@ -15,13 +15,39 @@ module Skipchain
         def timestamp
             @snapshot.timestamp
         end
+        def name 
+            @snapshot.name
+        end
     end
 
     ## thie whole skiplist (contains every skipblock)
     class Skiplist 
-        def initialize skipblocks
-            @skipblocks = skipblocks
+        attr_reader :timestamps
+        attr_reader :skipblocks
+        
+        def initialize 
+            @skipblocks = []
+            @timestamps = {}
         end
+
+        def add snapshot,height
+            block = Skipblock.new snapshot,height
+            @skipblocks << block
+            @timestamps[snapshot.timestamp] = @skipblocks.size-1
+        end
+
+        def each
+            @skipblocks.each
+        end
+
+        ## accessor using timestamps
+        def [](timestamp)
+            idx = @timestamps[timestamp] 
+            abort("[-] Timestamp not known ?") unless idx
+            @skipblocks[idx]
+        end
+
+        def 
 
         def to_s 
             @skipblocks.each_with_index.inject("") do |sum,(blk,i)| 
@@ -35,21 +61,26 @@ module Skipchain
         def mapping_client_update 
             last_id = 0
             size = @skipblocks.size
-            Proc.new do |ts|
-                last_ts = @skipblocks[last_id].timestamp
+            return Proc.new do |ts|
+                ret_value = @skipblocks[last_id].timestamp
                 last_id.upto(size-1).each do |id| 
                     block = @skipblocks[id]
                     ## if its the last then returns this one
-                    next block.timestamp if id == size-1
+                    if id == size-1
+                        ret_value = block.timestamp
+                        break
+                    end
 
                     ## otherwise check the next one in the list
                     nextBlock = @skipblocks[id+1]
                     diff = (ts-nextBlock.timestamp)
                     if diff < 0  
                         last_id = id
-                        next block
+                        ret_value = block.timestamp
+                        break
                     end
                 end
+                ret_value
             end
         end
 
@@ -67,11 +98,14 @@ module Skipchain
         ## take the one we want
         snapshots = snapshots.first(config.head) if config.head
         ## create the blocks
-        blocks = snapshots.each_with_index.map do |snap,i| 
+        
+        sk = Skiplist.new
+        snapshots.each_with_index.map do |snap,i| 
             entry = table.find{ |k,v| i % k == 0 }
-            Skipblock.new snap,entry[1]+1
+            sk.add snap,entry[1]+1
         end
-        Skiplist.new blocks
+        puts "[+] Skiplist created out of the snapshots"
+        sk
     end
 
     
