@@ -88,11 +88,11 @@ def main
     end
     puts "[+] Processing terminated"
     ## write to file
-    File.open(@options[:out],"w") do |f|
-        f.write "time, cumul_bandwith_#{@options[:processor]}\n"         
+    File.open(@options[:out],"w+") do |f|
+        f.write("time, cumul_bandwith_#{@options[:processor]}\n")
         result.each do |k,v| 
             d = Time.at(k).utc.to_datetime
-            f.write "#{d.strftime("%Y-%m-%d %H:%M:%S")}, #{v}\n" }
+            f.write("#{d.strftime("%Y-%m-%d %H:%M:%S")}, #{v}\n")
         end
     end
 end
