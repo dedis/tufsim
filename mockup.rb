@@ -7,7 +7,6 @@ Struct.new("Snapshot",:timestamp,:name)
 ## define client update info struct
 Struct.new("ClientUpdate",:ip,:timestamps)
 
-@@aborting = lambda { abort("[-] Not connected to server") }
 
 module Mockup
     HOST = "icsil1-conode1"
@@ -19,14 +18,21 @@ module Mockup
     LOCAL_USER_FILE = "sorted_user.ts-ip.log"
 
 
+    @@aborting = lambda { abort("[-] Not connected to server") }
+
     ## store in memory the size of all packages metadata file
-    ## output of stat -c %s %n
-    def analyze_packages_size output
+    ## Give it a block that receives the command and execute it (locally or
+    #  whatever)
+    def compute_packages_size 
+        cmd = "cd #{PACKAGES_PATH} && ls | xargs stat -c '%n %s'"
+        output = yield cmd
         @packages = {}
         output.each_line do |line|
             name,size = line.chomp.split
             @packages[name] = size.to_i
         end
+        puts "[+] Fetched size of all #{@packages.length} packages"
+        @packages
     end
 
     ## store in memory the list of all snapshots files
@@ -43,7 +49,7 @@ module Mockup
 
     ## store in memory the update of all clients
     def analyze_client_update_file  fname, mapping
-        abort("[-] Client file not downloaded.") unless File.exists? fname
+        abort("[-] Client log file absent.") unless File.exists? fname
         ## hash[ip] = timestamps
         clientsMap = Hash.new { |h,k| h[k] = [] }
         countUpdate = 0
@@ -84,9 +90,42 @@ module Mockup
 
 
     class Local
-        def initialize
+        include Mockup
 
+        def initialize
         end 
+
+       
+        def snapshots
+            abort("[-] Not connected to server") if @ssh.nil?
+            @snapshots ||= begin
+                               snapshots = []
+                               output = ""
+                               ## print the size and shorten the name to only the timestamp
+                               cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
+                               output = @ssh.exec!(cmd)
+                               snapshots = analyze_snapshots_list output
+                               puts "[+] #{snapshots.size} snapshots retrieved from server"
+                               snapshots
+                           end
+        end 
+        ## retrieve the client updates info, stores it locally
+        ## you need to give a function that returns the correct timestamp
+        ## normally that would be the one nearest from an update
+        def client_updates mapping = nil
+            mapping = lambda { |x| x } if mapping.nil?
+            ## check if already downloaded
+            abort ("[-] No user log file") unless File.exist? REMOTE_USER_FILE
+            return analyze_client_update_file(REMOTE_USER_FILE, mapping) 
+        end
+
+        def packages_size
+            compute_packages_size { |cmd| `#{cmd}` }
+        end
+
+
+
+
     end
 
     class SSH
@@ -94,7 +133,6 @@ module Mockup
 
         def initialize
             @ssh = nil
-            @packages = {}
         end
 
         def connect
@@ -138,15 +176,12 @@ module Mockup
             return analyze_client_update_file(LOCAL_USER_FILE,mapping)
         end
 
-        ## get_packages_size will load the sizes of all packages/* in memory
+        ## packages_size will load the sizes of all packages/* in memory
         def packages_size
             @@aborting.call if @ssh.nil?
-            cmd = "cd #{PACKAGES_PATH} && ls | xargs stat -c '%n %s'"
-            output = @ssh.exec!(cmd)
-
-            analyze_packages_size output
-            puts "[+] Fetched size of all #{@packages.length} packages"
-            @packages
+            compute_packages_size do |cmd|
+                output = @ssh.exec!(cmd)
+            end
         end
 
         ## get_diff_size returns the difference between snap1 and snap2 in terms of
