@@ -73,19 +73,14 @@ def main
         updates = mockup.client_updates skiplist.mapping_client_update()
 
         ## run the processor
-        processor = nil
-        case @options[:processor].downcase
-        when "onelevel"
-            processor = Processor::OneLevel.new mockup,updates,skiplist
-            result = processor.processOneLevel
-        end
+        result  = Processor::process @options[:processor],mockup,updates, skiplist
     end
     puts "[+] Processing terminated"
     ## write to file
     File.open(@options[:out],"w+") do |f|
-        f.write("height, time, cumul_bandwith_#{@options[:processor]}\n")
+        f.write("base, height, time, cumul_bandwith_#{@options[:processor]}\n")
         result.each do |k,v|
-            f.write("#{@options[:height]}, #{k}, #{v}\n")
+            f.write [@options[:base],@options[:height], k, v].join(", ")
         end
     end
 end

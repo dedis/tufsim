@@ -162,7 +162,6 @@ module Mockup
             abort("[-] Not connected to server") if @ssh.nil?
             compute_snapshots_list do |cmd| 
                 out = @ssh.exec!(cmd) 
-                puts "[+] #{snapshots.size} snapshots retrieved from server"
                 out
             end
         end
