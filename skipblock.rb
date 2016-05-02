@@ -2,8 +2,14 @@
 #simulate a skipchain out of the tuf data
 module Skipchain
 
+    ## signature 
+    BLOCK_SIZE_DEFAULT = 156
+
     ## skipblock as a unit
     class Skipblock
+        attr_reader :height
+        attr_reader :snapshot
+
         def initialize snapshot,height
             @snapshot = snapshot
             @height = height
@@ -18,6 +24,10 @@ module Skipchain
         def name 
             @snapshot.name
         end
+
+        def size
+            BLOCK_SIZE_DEFAULT + 128 * @height
+        end
     end
 
     ## thie whole skiplist (contains every skipblock)
@@ -25,7 +35,9 @@ module Skipchain
         attr_reader :timestamps
         attr_reader :skipblocks
         
-        def initialize 
+        def initialize base,height
+            @base = base
+            @height = height
             @skipblocks = []
             @timestamps = {}
         end
@@ -38,6 +50,22 @@ module Skipchain
 
         def each
             @skipblocks.each
+        end
+
+        def last
+            @skipblocks.last
+        end
+
+        ## next returns the next snapshot after this one
+        ## you can specify a level to get the next snapshot AT THE SPECIFIED
+        #level to get faster lookup
+        def next snapshot, level = 0
+            idx = @timestamps[snapshot.timestamp]
+            offset = @base ** level 
+            return @skipblocks.last if idx+offset > @skipblocks.size
+            nblock = @skipblocks[idx+offset]
+            abort("Something wrong here?") if nblock.height < level
+            nblock
         end
 
         ## accessor using timestamps
@@ -99,7 +127,7 @@ module Skipchain
         snapshots = snapshots.first(config.head) if config.head
         ## create the blocks
         
-        sk = Skiplist.new
+        sk = Skiplist.new config.base,config.height
         snapshots.each_with_index.map do |snap,i| 
             entry = table.find{ |k,v| i % k == 0 }
             sk.add snap,entry[1]+1

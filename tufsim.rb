@@ -78,9 +78,10 @@ def main
     puts "[+] Processing terminated"
     ## write to file
     File.open(@options[:out],"w+") do |f|
-        f.write("base, height, time, cumul_bandwith_#{@options[:processor]}\n")
-        result.each do |k,v|
-            f.write [@options[:base],@options[:height], k, v].join(", ")
+        columns = (["base","height"] + result.shift).join(", ")  + "\n"
+        f.write columns
+        result.each do |values|
+            f.write ([@options[:base],@options[:height]] + values).join(", ") + "\n"
         end
     end
 end
