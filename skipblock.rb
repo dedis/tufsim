@@ -2,6 +2,10 @@
 #simulate a skipchain out of the tuf data
 module Skipchain
 
+    ## a skipchain has a fixed base and a fixed maximum height
+    # head is if you want only to generate the skiplist for *head* snapshots
+    Config = Struct.new("Config",:base,:height)
+
     ## signature 
     BLOCK_SIZE_DEFAULT = 156
 
@@ -62,9 +66,10 @@ module Skipchain
         def next snapshot, level = 0
             idx = @timestamps[snapshot.timestamp]
             offset = @base ** level 
-            return @skipblocks.last if idx+offset > @skipblocks.size
+            return @skipblocks.last if idx+offset > @skipblocks.size-1
             nblock = @skipblocks[idx+offset]
             abort("Something wrong here?") if nblock.height < level
+            #puts "[+] Next block Skipped #{offset} blocks" 
             nblock
         end
 
@@ -77,7 +82,7 @@ module Skipchain
 
         def 
 
-        def to_s 
+        def stringify 
             @skipblocks.each_with_index.inject("") do |sum,(blk,i)| 
                 sum += i.to_s + "\t: " + blk.to_s + "\n"
                 sum += "\t: |\n"
@@ -114,25 +119,20 @@ module Skipchain
 
     end 
 
-    ## a skipchain has a fixed base and a fixed maximum height
-    # head is if you want only to generate the skiplist for *head* snapshots
-    Config = Struct.new("Config",:base,:height,:head)
-
     ## return a skiplist  out of the list of snapshots and the config
     def self.create_skiplist snapshots, config
         ## compute the table of b^(i-1) for 0 <= i <= h
         #  [ [ b^i-1 ] , i (height-1)]
         table = (config.height-1).downto(0).map { |i| [config.base**i,i] }
-        ## take the one we want
-        snapshots = snapshots.first(config.head) if config.head
         ## create the blocks
         
-        sk = Skiplist.new config.base,config.height
+        sk = Skipchain::Skiplist.new config.base,config.height
         snapshots.each_with_index.map do |snap,i| 
             entry = table.find{ |k,v| i % k == 0 }
             sk.add snap,entry[1]+1
         end
         puts "[+] Skiplist created out of the snapshots"
+        #puts sk.stringify
         sk
     end
 

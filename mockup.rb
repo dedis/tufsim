@@ -33,7 +33,7 @@ module Mockup
         @packages
     end
 
-    def compute_snapshots_list
+    def compute_snapshots_list head = nil
         @snapshots ||= begin
                            snapshots = []
                            output = ""
@@ -42,9 +42,10 @@ module Mockup
                            output = yield cmd
                            ## populate the list of snapshots
                            snapshots = []
-                           output.each_line do |fname|
+                           output.each_line.each_with_index do |fname,i|
                                time = fname.match(/snapshot\.(.*)\.json/)[1]
                                snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
+                               break if head && i > head
                            end
                            puts "[+] #{snapshots.size} snapshots retrieved from server"
                            snapshots
@@ -52,26 +53,30 @@ module Mockup
     end
 
     ## store in memory the update of all clients
-    def analyze_client_update_file  fname, mapping, filtering = true
-        abort("[-] Client log file absent.") unless File.exists? fname
-        ## hash[ip] = timestamps
-        clientsMap = Hash.new { |h,k| h[k] = [] }
-        countUpdate = 0
-        File.foreach(fname) do |line|
-            time, ip = line.gsub(" ","").chomp.split ","
-            time = mapping.call(time.to_i)
-            clientsMap[ip.gsub(" ","").chomp] << time
-            countUpdate += 1
-        end
-        before = countUpdate
-        clientsMap.inject(clientsMap) do |h,(k,v)| 
-             next h unless v.size == 1 
-             countUpdate -= 1
-             h.delete(k)
-             next h
-        end if filtering
-        puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
-        return clientsMap
+    def analyze_client_update_file  fname, mapping, head = nil
+        @clientsMap ||=
+            begin
+                abort("[-] Client log file absent.") unless File.exists? fname
+                ## hash[ip] = timestamps
+                clientsMap = Hash.new { |h,k| h[k] = [] }
+                countUpdate = 0
+                File.foreach(fname) do |line|
+                    time, ip = line.gsub(" ","").chomp.split ","
+                    time = mapping.call(time.to_i)
+                    clientsMap[ip.gsub(" ","").chomp] << time
+                    countUpdate += 1
+                    break if head && countUpdate > head    
+                end
+                before = countUpdate
+                clientsMap.inject(clientsMap) do |h,(k,v)| 
+                    next h unless v.size == 1 
+                    countUpdate -= 1
+                    h.delete(k)
+                    next h
+                end 
+                puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
+                clientsMap
+            end
     end
 
     def mockup_get_diff_size s1,s2
@@ -99,25 +104,24 @@ module Mockup
         end
     end
 
+    def initialize opts
+        @options = opts
+    end
 
     class Local
         include Mockup
 
-        def initialize
-        end 
-
-
-        def snapshots
-            compute_snapshots_list { |cmd| `#{cmd}` }
+        def snapshots head = nil
+            compute_snapshots_list(head) { |cmd| `#{cmd}` }
         end
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil
+        def client_updates mapping = nil,head = nil
             mapping = lambda { |x| x } if mapping.nil?
             ## check if already downloaded
             abort ("[-] No user log file") unless File.exist? REMOTE_USER_FILE
-            return analyze_client_update_file(REMOTE_USER_FILE, mapping) 
+            return analyze_client_update_file(REMOTE_USER_FILE, mapping,head)
         end
 
         def packages_size
@@ -138,29 +142,25 @@ module Mockup
     class SSH
         require 'net/ssh'
         require 'net/scp'
-        
+
         include Mockup
 
-        def initialize
-            @ssh = nil
-        end
-
         def connect
-            print "[+] Connecting to server..."
+            print "[+] Connecting to server..." if @options[:v]
             @ssh = Net::SSH.start(HOST,USER) 
-            print "OK\n"
+            print "OK\n" if @options[:v]
         end
 
         def close
-            print "[+] Closing connection to server..."
+            print "[+] Closing connection to server..." if @options[:v]
             @ssh.close
-            print "OK\n"
+            print "OK\n" if @options[:v]
         end
 
         ## retrieve the snapshots info from the 23.5gb compressed files hosted on our server
-        def snapshots
+        def snapshots head
             abort("[-] Not connected to server") if @ssh.nil?
-            compute_snapshots_list do |cmd| 
+            compute_snapshots_list(head) do |cmd| 
                 out = @ssh.exec!(cmd) 
                 out
             end
@@ -169,15 +169,15 @@ module Mockup
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil
+        def client_updates mapping = nil,head = nil
             mapping = lambda { |x| x } if mapping.nil?
             ## check if already downloaded
 
-            return analyze_client_update_file(LOCAL_USER_FILE, mapping) if File.exist? LOCAL_USER_FILE
+            return analyze_client_update_file(LOCAL_USER_FILE, mapping,head) if File.exist? LOCAL_USER_FILE
             ## otherwise download it
-            puts "[+] Downloading client log"
+            puts "[+] SSH - downloading client log"
             Net::SCP.download!(HOST,USER,REMOTE_USER_FILE,LOCAL_USER_FILE)
-            return analyze_client_update_file(LOCAL_USER_FILE,mapping)
+            return analyze_client_update_file(LOCAL_USER_FILE,mapping,head)
         end
 
         ## packages_size will load the sizes of all packages/* in memory

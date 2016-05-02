@@ -6,16 +6,17 @@ module Processor
     self.cache_diff = {}
 
     ## generic processor launcher
-    def self.process klass, mockup,updates, skiplist
+    def self.process klass, mockup,updates, skiplist,options
         begin
             klass = klass.capitalize.to_sym if klass.is_a?(String)
-            processor = Processor::const_get(klass).new mockup,updates,skiplist
+            processor = Processor::const_get(klass).new mockup,updates,skiplist,options
         rescue Exception => e
-            abort("[-] Processing module not known. Abort. (#{e})")
+            puts("[-] Processing module not known. Abort. (#{e})")
+            abort
         end
-        puts "[+] #{klass} starting to process"
+        puts "[+] #{klass} starting to process" if options[:v]
         res = processor.process
-        puts "[+] #{klass} finished processing"
+        puts "[+] #{klass} finished processing" if options[:v]
         res
     end
 
@@ -23,15 +24,17 @@ module Processor
 
         include Processor
 
-        def initialize mockup,updates,skiplist
+        require_relative 'ruby_util'
+
+        def initialize mockup,updates,skiplist,options
             @mockup = mockup
             @updates = updates
             @skiplist = skiplist
-            @result = {}
+            @options = options
         end
 
         def name
-            self.class.name.downcase
+            RubyUtil::demodulize self.class.name.downcase
         end
 
         ## returns the diff in bytes between two snapshots
@@ -46,8 +49,7 @@ module Processor
             end
             bytes
         end
-
-
+    
         ## process returns hashmap with
         ## KEYS => timestamp of snapshots 
         #  VALUES => cumulative bandwitdth consumption by clients
@@ -64,8 +66,8 @@ module Processor
             @updates.each do |ip,tss|
                 count += 1
                 perc = count.to_f / @updates.size.to_f * 100.0
-                puts "[+] Processing done for #{perc} %" if perc % 1.0 == 0.0
-                puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps"
+                puts "[+] Processing done for #{perc} %" if perc % 1.0 == 0.0 if @options[:v]
+                #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
                 next if tss.size == 1
                 ## let's calculate each diff
                 base_ts = tss.first
@@ -85,9 +87,8 @@ module Processor
                     base_ts = next_ts
                 end
             end  
-            ## not forcing it
-            ##Hash[h.sort]
-            h 
+            puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
+            Hash[h.sort]
         end
 
 
@@ -100,12 +101,12 @@ module Processor
         def flatten hash
             ## then flatten out the results
             cumul = 0
-            hash.inject([]) do |acc, (time,values) |
+            values = values = hash.inject([]) do |acc, (time,values) |
                 sum = values.inject(0) { |sum,bw| sum += bw } + cumul
                 cumul += sum
                 acc << [time,sum]
             end
-            [[:time,"bw_#{name}"], @results]
+            [[:time,"bw_#{name}"], values]
         end
 
 
@@ -179,19 +180,19 @@ module Processor
         require 'set'
         def process
             columns = Set.new
-            values = ["Skiplist","Tuf","Level0"].inject([]) do |acc, p|
-                results = Processor::process p, @mockup,@updates, @skiplist
+            values = ["Tuf","Level0","Skiplist"].inject([]) do |acc, p|
+                results = Processor::process p, @mockup,@updates, @skiplist, @options
                 columns.merge results.shift 
                 ## take all but the first data (which is the time,only the first
                 #time)
-                results.each_with_index.map do |row,i| 
+                results.first.each_with_index do |row,i| 
                     time = row.shift; 
                     acc[i] = [time] if acc[i].nil?
                     acc[i] += row
                 end
+                acc
             end
-            puts "[+] All processings are done"
-            [columns,values]
+            [columns.to_a,values]
         end
     end
 end
