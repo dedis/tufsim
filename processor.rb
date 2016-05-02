@@ -11,6 +11,7 @@ module Processor
     ## generic processor launcher
     def self.process klass, mockup,updates, skiplist
         klass = klass.capitalize.to_sym if klass.is_a?(String)
+        abort("[-] No processor defined with that name") unless Processor::const_get(klass)
         processor = Processor::const_get(klass).new mockup,updates,skiplist
         processor.process
     end
