@@ -72,12 +72,6 @@ def main
         ## fetch and map the client updates
         updates = mockup.client_updates skiplist.mapping_client_update()
 
-        ## verification
-        #tssSkip = skiplist.timestamps
-        #updates.each do |k,v|
-        #    puts "WOW" if v.find_all { |ts| !tssSkip.key?(ts)}.size > 0
-        #end
-
         ## run the processor
         processor = nil
         case @options[:processor].downcase
@@ -89,9 +83,9 @@ def main
     puts "[+] Processing terminated"
     ## write to file
     File.open(@options[:out],"w+") do |f|
-        f.write("time, cumul_bandwith_#{@options[:processor]}\n")
+        f.write("height, time, cumul_bandwith_#{@options[:processor]}\n")
         result.each do |k,v|
-            f.write("#{k}, #{v}\n")
+            f.write("#{@options[:height]}, #{k}, #{v}\n")
         end
     end
 end
