@@ -97,6 +97,8 @@ module Mockup
     class Local
         include Mockup
 
+        require 'diffy'
+
         def snapshots head = nil
             compute_snapshots_list(head) { |cmd| `#{cmd}` }
         end
