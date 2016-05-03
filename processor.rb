@@ -82,7 +82,7 @@ module Processor
                     next_snap = @skiplist[next_ts]
 
                     total = yield base_snap, next_snap
-                    key = @options[:graph] == :linear ? next_ts : next_ts - base_ts
+                    key = @options[:graph] == :cumulative ? next_ts : next_ts - base_ts
                     h[key] << total
                     base_ts = next_ts
                 end
@@ -94,7 +94,7 @@ module Processor
 
         def format_data hash
             case @options[:graph]
-            when :linear
+            when :cumulative
                 flatten hash
             when :scatter
                 scatter hash
