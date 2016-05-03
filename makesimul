@@ -1,6 +1,7 @@
 #!/bin/bash
 SNAP=30000
 CLIENT=100000
+FILE=cumul
 GEN=cumulative
 
 mkargs(){
@@ -11,12 +12,12 @@ mkargs(){
 sim_sc(){
   BASE=$1
   EXP=$2
-  ./tufsim.rb skiplist $ARGS -b $BASE -i $EXP -o cumul_sc_${BASE}_${EXP}.csv 
+  ./tufsim.rb skiplist $ARGS -b $BASE -i $EXP -o ${FILE}_${BASE}_${EXP}.csv 
 }
 
 run_sim(){
-  ./tufsim.rb tuf $ARGS -o cumul_tuf.csv 
-  ./tufsim.rb height0 $ARGS -o cumul_sc_2_0.csv 
+  ./tufsim.rb tuf $ARGS -o ${FILE}_tuf.csv 
+  ./tufsim.rb height0 $ARGS -o ${FILE}_sc_2_0.csv 
   for base in 2 3 5 7 11; do
     sim_sc $base 5
   done
@@ -29,6 +30,7 @@ sim_cumul(){
 
 sim_scatter(){
   GEN=scatter
+  FILE=scatter
   mkargs
   run_sim
 }
