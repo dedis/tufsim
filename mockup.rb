@@ -79,26 +79,12 @@ module Mockup
             end
     end
 
-    def mockup_get_diff_size s1,s2
-        name1,name2 = s1.name,s2.name
-        ## get the diff 
-        diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{name1} #{name2} | grep -E '^\+.*packages'"
-        cmd = "cd #{SNAPSHOT_PATH} && #{diffCmd}" 
-        out = yield cmd
-        abort("[-] Error diffing: " + out) if cmd =~ /diff: /
-
-        #countCmd = "cd #{SNAPSHOT_PATH} && diff -dbwB --unified=0 --suppress-common-lines #{name1} #{name2} | grep -E '^\+.*packages' | uniq -u | wc -l"
-        #puts "#{name1} vs #{name2} => #{@ssh.exec!(countCmd).chomp} vs LOCAL #{out.lines.count}"
-        #puts "DiffCommand = #{diffCmd}"
-        #puts "CountCommand = #{countCmd}"
-
+    def mockup_get_diff_size  ite
         ## analyze the diff
-        out.lines.inject(0) do |sum,line|
-            name,hash = line.split ":"
-            m = name.match(/packages\/(.+)\.json/)
-            abort "cmd #{cmd} \nout = #{out}" if m.nil?
-            name = m[1]
-            hash = hash.match(/([a-f0-9]+)/)[1]
+        ite.inject(0) do |sum,line|
+            next sum if not line =~ /\+.*packages\/(.+)\.json.*\"([a-f0-9]+)\"/
+            name = $1
+            hash = $2
             fname = name+"."+hash+".json"
             sum += @packages[fname]
         end
@@ -132,7 +118,9 @@ module Mockup
         #  packages that must be updated (i.e. downloaded) => returns # bytes
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
-            mockup_get_diff_size(s1,s2) { |cmd| `#{cmd}` } 
+            diff = Diffy::Diff.new(s1.name,s2.name,:source => "files")
+                        
+            mockup_get_diff_size diff.to_s.each_line
         end
 
 
@@ -193,9 +181,10 @@ module Mockup
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
             @@aborting.call unless @ssh                
-            mockup_get_diff_size s1,s2 do |cmd|
-                @ssh.exec!(cmd) 
-            end
+            diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{s1.name} #{s2.name}"
+            cmd = "cd #{SNAPSHOT_PATH} && #{diffCmd}" 
+            out = @ssh.exec!(cmd) 
+            mockup_get_diff_size out.each_line
         end
 
     end
