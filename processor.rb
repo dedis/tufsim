@@ -34,7 +34,7 @@ module Processor
         end
 
         def name
-            RubyUtil::demodulize self.class.name.downcase
+            "bw_#{@options[:graph]}_" + RubyUtil::demodulize(self.class.name.downcase)
         end
 
         ## returns the diff in bytes between two snapshots
@@ -82,15 +82,33 @@ module Processor
                     next_snap = @skiplist[next_ts]
 
                     total = yield base_snap, next_snap
-
-                    h[next_ts] << total
+                    key = @options[:graph] == :linear ? next_ts : next_ts - base_ts
+                    h[key] << total
                     base_ts = next_ts
                 end
             end  
             puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
-            Hash[h.sort]
+            h = Hash[h.sort]
+            format_data h
         end
 
+        def format_data hash
+            case @options[:graph]
+            when :linear
+                flatten hash
+            when :scatter
+                scatter hash
+            end
+        end
+
+        ## scatter will return one row per update of clients
+        def scatter hash
+            res = hash.inject([]) do |acc,(time,values)|
+                values.each { |v| acc << [time,v] } 
+                acc
+            end
+            [[:time,name], res]
+        end
 
         ## flatten out results by taking the cumulative bandwidth for each timestamp
         ## returns something that can be written directly to csv
@@ -102,13 +120,12 @@ module Processor
             ## then flatten out the results
             cumul = 0
             values = values = hash.inject([]) do |acc, (time,values) |
-                sum = values.inject(0) { |sum,bw| sum += bw } + cumul
+                sum = values.inject(0) { |sum,bw| sum += bw }
                 cumul += sum
-                acc << [time,sum]
+                acc << [time,cumul]
             end
-            [[:time,"bw_#{name}"], values]
+            [[:time,name], values]
         end
-
 
     end
 
@@ -125,10 +142,8 @@ module Processor
                 ## # of skipblocks that must be traversed between the two
                 # 0-level
                 blocks = @skiplist.timestamps[next_snap.timestamp] - @skiplist.timestamps[base_snap.timestamp]
-                total = bytes + blocks * Skipchain::BLOCK_SIZE_DEFAULT
-                total
+                bytes + blocks * Skipchain::BLOCK_SIZE_DEFAULT
             end
-            flatten res
         end
     end
 
@@ -140,7 +155,6 @@ module Processor
                 # simply get the diff between the two
                 get_diff base_snap,next_snap
             end
-            flatten res
         end
     end
 
@@ -171,12 +185,11 @@ module Processor
                 bytes = get_diff base_snap,next_snap 
                 bytes + bytes_block
             end
-            flatten res
         end
     end
 
-    ## Linear regroups Level0, Tuf and Skiplist
-    class Linear < Processor::Generic
+    ## All regroups Level0, Tuf and Skiplist
+    class All < Processor::Generic
         require 'set'
         def process
             columns = Set.new
@@ -195,4 +208,5 @@ module Processor
             [columns.to_a,values]
         end
     end
+
 end

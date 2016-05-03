@@ -89,6 +89,16 @@ module Skipchain
             end
         end
     
+        #def mapping_client_update2
+        #    last_id = 0
+        #    Proc.new do |ts|
+        #        ret_value = nil
+        #        @skipblocks[last_id].each_cons(2).each_with_index do |(old,new),i|
+        #            
+        #        end
+        #    end
+        #end
+        #
         ## map_client_update returns a function to map the timestamp of the client updates to the
         #nearest one from the skipblocks
         def mapping_client_update 
@@ -99,7 +109,9 @@ module Skipchain
                 last_id.upto(size-1).each do |id| 
                     block = @skipblocks[id]
                     ## if its the last then returns this one
-                    if id == size-1
+                    ## or if it's the first and it's already bigger than the
+                    #client update time
+                    if id == size-1 || block.timestamp > ts
                         ret_value = block.timestamp
                         break
                     end
@@ -116,7 +128,6 @@ module Skipchain
                 ret_value
             end
         end
-
     end 
 
     ## return a skiplist  out of the list of snapshots and the config

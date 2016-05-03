@@ -43,9 +43,9 @@ module Mockup
                            ## populate the list of snapshots
                            snapshots = []
                            output.each_line.each_with_index do |fname,i|
+                               next if head && i > head
                                time = fname.match(/snapshot\.(.*)\.json/)[1]
                                snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
-                               break if head && i > head
                            end
                            puts "[+] #{snapshots.size} snapshots retrieved from server"
                            snapshots
@@ -61,11 +61,11 @@ module Mockup
                 clientsMap = Hash.new { |h,k| h[k] = [] }
                 countUpdate = 0
                 File.foreach(fname) do |line|
+                    next if head && countUpdate > head    
                     time, ip = line.gsub(" ","").chomp.split ","
                     time = mapping.call(time.to_i)
                     clientsMap[ip.gsub(" ","").chomp] << time
                     countUpdate += 1
-                    break if head && countUpdate > head    
                 end
                 before = countUpdate
                 clientsMap.inject(clientsMap) do |h,(k,v)| 

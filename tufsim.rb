@@ -12,9 +12,10 @@ require_relative 'processor'
 DEFAULT_BASE = 2
 DEFAULT_HEIGHT = 2
 DEFAULT_OUTPUT = "result.csv"
+DEFAULT_GRAPH = :linear
 
 @options = {:base => DEFAULT_BASE, :height => DEFAULT_HEIGHT, :type => :local,
-            :out => DEFAULT_OUTPUT }
+            :out => DEFAULT_OUTPUT, :graph => :linear}
 class << self; attr_reader :options; end;
 
 OptionParser.new do |opts|
@@ -33,6 +34,11 @@ OptionParser.new do |opts|
     end
     opts.on("-f","--fixed","Fixed size for all skipblocks (not taking into account the height") do |s|
         @options[:fixed] = true
+    end
+    opts.on("-g","--graph TYPE","TYPE is *linear* or *scatter*.Default is *linear*") do |g|
+        @options[:graph] = g.downcase.to_sym
+        ## check if it's correct
+        abort("[-] Unknown type of graph #{g}") unless [:linear,:scatter].include? @options[:graph]
     end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
