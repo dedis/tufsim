@@ -22,6 +22,11 @@ module Processor
 
     class Generic
 
+        COLUMN_UPDATE = :updates
+        COLUMN_TIME = :times
+
+        DEFAULT_COLUMN = [COLUMN_TIME,COLUMN_UPDATE]
+
         include Processor
 
         require_relative 'ruby_util'
@@ -105,7 +110,7 @@ module Processor
                 values.each { |v| acc << [time,v] } 
                 acc
             end
-            [[:time,name], res]
+            [[COLUMN_TIME,name], res]
         end
 
         ## flatten out results by taking the cumulative bandwidth for each timestamp
@@ -120,9 +125,15 @@ module Processor
             values = values = hash.inject([]) do |acc, (time,values) |
                 sum = values.inject(0) { |sum,bw| sum += bw }
                 cumul += sum
-                acc << [time,cumul]
+                acc << [time,values.size,cumul]
             end
-            [[:time,name], values]
+            [[COLUMN_TIME,COLUMN_UPDATE,name], values]
+        end
+
+        def shift_default_value row
+            def_values =  []
+            0.upto(DEFAULT_COLUMN.size-1).each { def_values << row.shift }
+            def_values
         end
 
     end
@@ -191,14 +202,14 @@ module Processor
         require 'set'
         def process
             columns = Set.new
-            values = ["Tuf","Level0","Skiplist"].inject([]) do |acc, p|
+            values = ["Tuf","Height0","Skiplist"].inject([]) do |acc, p|
                 results = Processor::process p, @mockup,@updates, @skiplist, @options
                 columns.merge results.shift 
                 ## take all but the first data (which is the time,only the first
                 #time)
                 results.first.each_with_index do |row,i| 
-                    time = row.shift; 
-                    acc[i] = [time] if acc[i].nil?
+                    defs = shift_default_value row
+                    acc[i] =  defs if acc[i].nil?
                     acc[i] += row
                 end
                 acc
