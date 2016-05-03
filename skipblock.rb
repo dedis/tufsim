@@ -30,7 +30,7 @@ module Skipchain
         end
 
         def size
-            BLOCK_SIZE_DEFAULT + 128 * @height
+            BLOCK_SIZE_DEFAULT #+ 128 * @height
         end
     end
 
