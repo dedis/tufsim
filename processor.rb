@@ -25,6 +25,7 @@ module Processor
         include Processor
 
         require_relative 'ruby_util'
+        require 'etc'
 
         def initialize mockup,updates,skiplist,options
             @mockup = mockup
@@ -34,22 +35,19 @@ module Processor
         end
 
         def name
-            "bw_#{@options[:graph]}_" + RubyUtil::demodulize(self.class.name.downcase)
+            if @options[:processor] == :All 
+                "bw_#{@options[:graph]}_" + RubyUtil::demodulize(self.class.name.downcase)
+            else
+                "bandwidth"
+            end
         end
 
         ## returns the diff in bytes between two snapshots
         def get_diff s1,s2
-            base_ts = s1.timestamp
-            next_ts = s2.timestamp
-            if Processor.cache_diff.key?([base_ts,next_ts])
-                bytes = Processor.cache_diff[[base_ts,next_ts]]
-            else
-                bytes = @mockup.get_diff_size s1,s2 
-                Processor.cache_diff[[base_ts,next_ts]] = bytes
-            end
-            bytes
+            @mockup.get_diff_size s1,s2 
         end
     
+
         ## process returns hashmap with
         ## KEYS => timestamp of snapshots 
         #  VALUES => cumulative bandwitdth consumption by clients
@@ -132,7 +130,7 @@ module Processor
     ## OneLevel process skipblock at the level 0
     ## -> simulation of a client that must retrieve every skipblock until the
     #right one on the level 0
-    class Level0 < Processor::Generic
+    class Height0 < Processor::Generic
 
         def process
             res = process_block do  |base_snap, next_snap|

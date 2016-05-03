@@ -28,25 +28,25 @@ module RubyUtil
     # to when to partition a task
     # collection must respond to slice
     CHUNK_SIZE = 100
-    def self.partition collection
+    def self.partition collection, chunk_size = CHUNK_SIZE
         return unless block_given?
         # No need for partitionning
-        if collection.size <= CHUNK_SIZE
+        if collection.size <= chunk_size
             yield collection
             return
         end
 
-        counter = collection.size / CHUNK_SIZE
-        rest = collection.size % CHUNK_SIZE
+        counter = collection.size / chunk_size
+        rest = collection.size % chunk_size
         # yield for each "slice"
         counter.times do |n|
-            low = n * CHUNK_SIZE
-            sub = collection.slice(low,CHUNK_SIZE) 
+            low = n * chunk_size
+            sub = collection.slice(low,chunk_size) 
             yield sub
         end
         unless rest == 0
             # yield for the rest
-            sub = collection.slice( counter*CHUNK_SIZE, (counter*CHUNK_SIZE) + rest)
+            sub = collection.slice( counter*chunk_size, (counter*chunk_size) + rest)
             yield sub
         end
     end

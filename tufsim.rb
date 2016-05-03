@@ -57,7 +57,7 @@ end.parse!
 
 def args
     abort("[-] Not enough arguments") if ARGV.empty?
-    @options[:processor]= ARGV.shift
+    @options[:processor]= ARGV.shift.capitalize.to_sym
 end
 
 def new_mockup
