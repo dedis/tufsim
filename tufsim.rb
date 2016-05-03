@@ -31,6 +31,9 @@ OptionParser.new do |opts|
     opts.on("-c","--client-head NUMBER","Takes only the first NUMBER of client updates") do |c|
         @options[:client_head] = c.to_i
     end
+    opts.on("-f","--fixed","Fixed size for all skipblocks (not taking into account the height") do |s|
+        @options[:fixed] = true
+    end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
     end
@@ -40,7 +43,7 @@ OptionParser.new do |opts|
     opts.on("-v","--verbose","verbosity enabled") do |v|
         @options[:v] = true
     end
-    opts.on('-h', '--help', 'Displays Help') do
+    opts.on('-h', '--help', 'Displays Help') do 
         puts opts
         exit
     end

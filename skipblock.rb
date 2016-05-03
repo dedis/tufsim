@@ -30,7 +30,7 @@ module Skipchain
         end
 
         def size
-            BLOCK_SIZE_DEFAULT #+ 128 * @height
+            BLOCK_SIZE_DEFAULT + 128 * @height
         end
     end
 
@@ -132,7 +132,6 @@ module Skipchain
             sk.add snap,entry[1]+1
         end
         puts "[+] Skiplist created out of the snapshots"
-        #puts sk.stringify
         sk
     end
 

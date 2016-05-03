@@ -164,7 +164,7 @@ module Processor
 
                     curr = intermediate
                     curr_height = curr.height
-                    bytes_block += intermediate.size 
+                    bytes_block += @options[:fixed] ? Skipchain::BLOCK_SIZE_DEFAULT : intermediate.size
                     # we fall on the right block !
                     break if intermediate.timestamp == next_snap.timestamp
                 end
