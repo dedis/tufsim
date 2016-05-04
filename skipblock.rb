@@ -204,7 +204,7 @@ module Skipchain
                     @skipblocks.last
             end
             ## all the snapshots at this level
-            list_level = @heights[snapshot.height]
+            list_level = @heights[level]
             ## index of the snapshot in this list
             idx = @heights_timestamp[snapshot.timestamp] 
             ## index in the general list of skipblocks
