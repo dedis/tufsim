@@ -51,10 +51,10 @@ module Processor
         ## returns the diff in bytes between two snapshots
         def get_diff s1,s2
             key = "#{s1.name}:#{s2.name}"
-            if @diff_cache[key] == nil
-                @diff_cache[key] = @mockup.get_diff_size s1,s2
+            if Processor.cache_diff[key] == nil
+                Processor.cache_diff[key] = @mockup.get_diff_size s1,s2
             end
-            @diff_cache[key]
+            Processor.cache_diff[key]
         end
     
 

@@ -5,7 +5,6 @@ Struct.new("Snapshot",:timestamp,:name)
 ## define client update info struct
 Struct.new("ClientUpdate",:ip,:timestamps)
 
-
 module Mockup
     HOST = "icsil1-conode1"
     USER = "root"
@@ -120,8 +119,7 @@ module Mockup
         #  packages that must be updated (i.e. downloaded) => returns # bytes
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
-	    dir = "/root/tuf/"
-            diff = Diffy::Diff.new(dir + s1.name,dir + s2.name,:source => "files", :context => 1)
+            diff = Diffy::Diff.new(File.join(SNAPSHOT_PATH,s1.name),File.join(SNAPSHOT_PATH,s2.name),:source => "files", :context => 1)
             mockup_get_diff_size diff.to_s.each_line
         end
 
