@@ -9,8 +9,8 @@ require_relative 'skipblock'
 require_relative 'mockup'
 require_relative 'processor'
 
-DEFAULT_BASE = 2
-DEFAULT_HEIGHT = 2
+DEFAULT_BASE = [2]
+DEFAULT_HEIGHT = [2]
 DEFAULT_OUTPUT = "result.csv"
 DEFAULT_GRAPH = :cumulative
 
@@ -20,11 +20,11 @@ class << self; attr_reader :options; end;
 
 OptionParser.new do |opts|
     opts.banner = "Usage tufsim.rb <processor> [options]"
-    opts.on("-b","--base BASE",'Base of the skiplist') do |b|
-        @options[:base] = b.to_i
+    opts.on("-b","--base b1,b2,b3",Array,'Bases of the skiplist') do |b|
+        @options[:base] = b.map(&:to_i)
     end
-    opts.on("-i","--heigh HEIGHT","Maximum height of the skiplist") do |h|
-        @options[:height] = h.to_i
+    opts.on("-i","--heigh h1,h2,h3",Array, "Maximum height of the skiplist") do |h|
+        @options[:height] = h.map(&:to_i)
     end
     opts.on("-s","--snapshot-head NUMBER","Takes only the first NUMBER snapshots") do |n|
         @options[:snap_head] = n.to_i
@@ -84,27 +84,43 @@ def main
     puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
     result = nil
     new_mockup do |mockup|
-        config = Skipchain::Config.new(@options[:base],@options[:height],@options[:random])
         ## first get the list of snapshots
         snaps = mockup.snapshots @options[:snap_head]
-        ## construct the skiplist out of it
-        skiplist = Skipchain::create_skiplist snaps, config
-        ## fetch and map the client updates
-        updates = mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
+        @options[:base].each do |b|
 
-        ## run the processor
-        result  = Processor::process @options[:processor],mockup,updates, skiplist,@options
-    end
-    puts "[+] Processing terminated"
-    ## write to file
-    File.open(@options[:out],"w+") do |f|
-        columns = (["base","height"] + result.shift).join(", ")  + "\n"
-        f.write columns
-        result.first.each do |values|
-            f.write ([@options[:base],@options[:height]] + values).join(", ") + "\n"
+            @options[:height].each do |h|
+                config = Skipchain::Config.new(b,h,@options[:random])
+                ## construct the skiplist out of it
+                skiplist = Skipchain::create_skiplist snaps, config
+                ## fetch and map the client updates
+                updates ||= mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
+
+                ## run the processor
+                result  = Processor::process @options[:processor],mockup,updates, skiplist,@options
+
+                puts "[+] Processing with base #{b} & height #{h} terminated"
+
+                ## write to file
+                name = format_name @options[:out],b,h
+                File.open(name,"w+") do |f|
+                    columns = (["base","height"] + result.shift).join(", ")  + "\n"
+                    f.write columns
+                    result.first.each do |values|
+                        f.write ([b,h] + values).join(", ") + "\n"
+                    end
+                end
+                puts "[+] Results written to #{name}"
+            end 
         end
     end
-    puts "[+] Results written to #{@options[:out]}"
+end
+
+## return file name in the form /path/to/file/file_b**_h**.ext
+def format_name name, base,height
+    fname = File.basename(name,File.extname(name))
+    dirname = File.dirname(name)
+    new = fname + "_b#{base}_h#{height}#{File.extname(name)}"
+    File.join(dirname,new)
 end
 
 args
