@@ -205,6 +205,7 @@ module Skipchain
             end
             idx = @heights[level].find{ |i| i > idx && @timestamps[i].timestamp > snapshot.timestamp } || @skipblocks.last
             @timestamps[idx]
+        end
 #            ## all the snapshots at this level
             #list_level = @heights[level]
             ### index of the snapshot in this list
