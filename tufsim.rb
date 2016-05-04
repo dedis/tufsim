@@ -121,7 +121,7 @@ end
 def format_name name, base,height
     fname = File.basename(name,File.extname(name))
     dirname = File.dirname(name)
-    new = fname + "_b#{base}_h#{height}#{File.extname(name)}"
+    new = fname + "_#{base}_#{height}#{File.extname(name)}"
     File.join(dirname,new)
 end
 

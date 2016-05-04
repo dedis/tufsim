@@ -1,12 +1,14 @@
 #!/bin/bash
-SNAP=30000
-CLIENT=100000
+SNAP=20000
+CLIENT=10000
 FILE=cumul
 GEN=cumulative
+DATA=local
+#DATA=ssh
 
 mkargs(){
-  ARGS="-g $GEN -t local -s $SNAP -c $CLIENT"
-  #ARGS="-g $GEN -t local"
+  ARGS="-g $GEN -t $DATA"
+  ARGS="$ARGS -s $SNAP -c $CLIENT"
 }
 
 tufsim(){
@@ -14,19 +16,20 @@ tufsim(){
   shift
   echo
   echo Creating $FNAME
-  ./tufsim.rb $@ $ARGS -o $FNAME
+  time ./tufsim.rb $@ $ARGS -o $FNAME
 }
 
 sim_sc(){
   BASE=$1
   EXP=$2
-  tufsim ${FILE}_sc_${BASE}_${EXP} skiplist -b $BASE -i $EXP
+  tufsim ${FILE}_sc skiplist -b $BASE -i $EXP
 }
 
 run_sim(){
+  tufsim ${FILE}_diplomat diplomat
   tufsim ${FILE}_tuf tuf
-  tufsim ${FILE}_sc_2_0 height0 
-  for base in 2 3 5 7 11; do
+  tufsim ${FILE}_sc height0 
+  for base in 2 5 11 17; do
     sim_sc $base 5
   done
 }
@@ -43,5 +46,16 @@ sim_scatter(){
   run_sim
 }
 
+sim_random(){
+  mkargs
+  tufsim random_diplomat diplomat
+  tufsim random_tuf tuf
+  tufsim random_sc height0
+  for base in 2 5 11 17; do
+    tufsim random_sc skiplist -r $base -i 5
+  done
+}
+
 sim_cumul
 sim_scatter
+sim_random
