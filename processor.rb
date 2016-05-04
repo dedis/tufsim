@@ -56,7 +56,7 @@ module Processor
             end
             Processor.cache_diff[key]
         end
-    
+
 
         ## process returns hashmap with
         ## KEYS => timestamp of snapshots 
@@ -161,9 +161,25 @@ module Processor
         end
     end
 
+    class Tuf < Processor::Generic
+        def process
+            res = process_block do |base_snap, next_snap|
+                bytes_diff = 0
+                curr_snap = base_snap
+                loop do
+                    intermediate = @skiplist.next(curr_snap,0)
+                    bytes_diff += get_diff curr_snap,intermediate
+                    curr_snap = intermediate
+                    break if intermediate == next_snap
+                end
+                bytes_diff
+            end
+        end
+    end
+
 
     # Tuf simply analyzes the direct diff between two blocks
-    class Tuf < Processor::Generic
+    class Diplomat < Processor::Generic
         def process
             res  = process_block do |base_snap, next_snap|
                 # simply get the diff between the two
@@ -212,7 +228,7 @@ module Processor
         require 'set'
         def process
             columns = Set.new
-            values = ["Tuf","Height0","Skiplist"].inject([]) do |acc, p|
+            values = ["Tuf","Diplomat","Height0","Skiplist"].inject([]) do |acc, p|
                 results = Processor::process p, @mockup,@updates, @skiplist, @options
                 columns.merge results.shift 
                 ## take all but the first data (which is the time,only the first

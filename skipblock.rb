@@ -33,6 +33,10 @@ module Skipchain
         def size
             BLOCK_SIZE_DEFAULT + 128 * @height
         end
+
+        def == sk2
+            name == sk2.name && timestamp == sk2.timestamp
+        end
     end
 
     ## thie whole skiplist (contains every skipblock)
