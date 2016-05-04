@@ -123,9 +123,18 @@ module Skipchain
 
     class SkiplistRandom < Skiplist
 
+        attr_reader :heights 
+
+        def add snap, height
+            super snap,height
+            @heights ||= Hash.new { |h,k| h[k] = [] }
+            @heights[height] << @timestamps[snap.timestamp] 
+        end
+
         def next snapshot, level = 0
             idx = @timestamps[snapshot.timestamp]
-            @skipblocks[idx..-1].find { |s| s.height == level } || @skipblocks.last
+            nidx = @heights[level].find { |i| i > idx && @skipblocks[i].height == level } || @skipblocks.size-1
+            @skipblocks[nidx]
         end
 
     end
@@ -134,15 +143,15 @@ module Skipchain
         config.random ? create_skiplist_random(snapshots,config) : create_skiplist_normal(snapshots,config)
     end
 
-    TAIL = 0
-    HEADS = 1
-    STOP = TAIL
+    STOP = 1
+    MAX = 20
 
     def self.create_skiplist_random snapshots,config
         sk = Skipchain::SkiplistRandom.new config.base,config.height
         snapshots.each do |s|
             height = (0..config.height).inject(0) do |acc,i| 
                 break acc if rand.round == STOP;
+                break acc if acc > MAX
                 acc+=1
             end
             sk.add s,height
@@ -169,6 +178,3 @@ module Skipchain
     
 
 end
-
-
-

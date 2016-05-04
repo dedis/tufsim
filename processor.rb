@@ -79,7 +79,7 @@ module Processor
                 next if tss.size == 1
                 ## let's calculate each diff
                 base_ts = tss.first
-                tss.each do |ts|
+                tss.each_with_index do |ts,i|
                     next_ts = ts 
                     if next_ts == base_ts
                         #puts "#{ip} No new updates"
@@ -177,6 +177,7 @@ module Processor
     class Skiplist < Processor::Generic
 
         def process
+            last_ts = @skiplist.skipblocks.last.timestamp
             res = process_block do |base_snap,next_snap|
                 curr = base_snap 
                 curr_height = curr.height
@@ -184,6 +185,10 @@ module Processor
                 loop do 
                     intermediate = @skiplist.next(curr,curr_height)
 
+                    if intermediate.timestamp  == last_ts
+                        bytes_block += @options[:fixed] ? Skipchain::BLOCK_SIZE_DEFAULT : intermediate.size
+                        break
+                    end
                     ## we went too far
                     if intermediate.timestamp > next_snap.timestamp
                         curr_height -= 1
