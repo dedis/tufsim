@@ -23,7 +23,7 @@ module Processor
     class Generic
 
         COLUMN_UPDATE = :updates
-        COLUMN_TIME = :times
+        COLUMN_TIME = :time
 
         DEFAULT_COLUMN = [COLUMN_TIME,COLUMN_UPDATE]
 
