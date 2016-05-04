@@ -195,7 +195,7 @@ module Skipchain
         def add snap, height
             super snap,height
             @heights[height] << @timestamps[snap.timestamp] 
-            @heights_timestamp[snap.timestamp] = @heights[height].size 
+#            @heights_timestamp[snap.timestamp] = @heights[height].size 
         end
 
         def next snapshot, level = 0
@@ -203,14 +203,16 @@ module Skipchain
                 return @skipblocks[@timestamps[snapshot.timestamp]+1] ||
                     @skipblocks.last
             end
-            ## all the snapshots at this level
-            list_level = @heights[level]
-            ## index of the snapshot in this list
-            idx = @heights_timestamp[snapshot.timestamp] 
-            ## index in the general list of skipblocks
-            block_id = list_level[idx+1] || @skipblocks.size-1
-            @skipblocks[block_id]
-        end
+            idx = @heights[level].find{ |i| i > idx && @timestamps[i].timestamp > snapshot.timestamp } || @skipblocks.last
+            @timestamps[idx]
+#            ## all the snapshots at this level
+            #list_level = @heights[level]
+            ### index of the snapshot in this list
+            #idx = @heights_timestamp[snapshot.timestamp] 
+            ### index in the general list of skipblocks
+            #block_id = list_level[idx+1] || @skipblocks.size-1
+            #@skipblocks[block_id]
+#        end
 
         def to_s
             "Skiplist (random): random = #{@random.round(2)}, height = #{height}"
