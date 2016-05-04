@@ -4,7 +4,8 @@ module Skipchain
 
     ## a skipchain has a fixed base and a fixed maximum height
     # head is if you want only to generate the skiplist for *head* snapshots
-    Config = Struct.new("Config",:base,:height)
+    # random is to create random height for each skipblock.
+    Config = Struct.new("Config",:base,:height,:random)
 
     ## signature 
     BLOCK_SIZE_DEFAULT = 156
@@ -20,7 +21,7 @@ module Skipchain
         end
         def to_s 
             #s = @timestamp.to_s + " | " + @size.to_s 
-            0.upto(@height.to_i-1).map{ "O" }.join(" -- ")
+            0.upto(@height.to_i).map{ "O" }.join(" -- ")
         end
         def timestamp
             @snapshot.timestamp
@@ -89,16 +90,6 @@ module Skipchain
             end
         end
     
-        #def mapping_client_update2
-        #    last_id = 0
-        #    Proc.new do |ts|
-        #        ret_value = nil
-        #        @skipblocks[last_id].each_cons(2).each_with_index do |(old,new),i|
-        #            
-        #        end
-        #    end
-        #end
-        #
         ## map_client_update returns a function to map the timestamp of the client updates to the
         #nearest one from the skipblocks
         def mapping_client_update 
@@ -130,19 +121,48 @@ module Skipchain
         end
     end 
 
-    ## return a skiplist  out of the list of snapshots and the config
+    class SkiplistRandom < Skiplist
+
+        def next snapshot, level = 0
+            idx = @timestamps[snapshot.timestamp]
+            @skipblocks[idx..-1].find { |s| s.height == level } || @skipblocks.last
+        end
+
+    end
+
     def self.create_skiplist snapshots, config
+        config.random ? create_skiplist_random(snapshots,config) : create_skiplist_normal(snapshots,config)
+    end
+
+    TAIL = 0
+    HEADS = 1
+    STOP = TAIL
+
+    def self.create_skiplist_random snapshots,config
+        sk = Skipchain::SkiplistRandom.new config.base,config.height
+        snapshots.each do |s|
+            height = (0..config.height).inject(0) do |acc,i| 
+                break acc if rand.round == STOP;
+                acc+=1
+            end
+            sk.add s,height
+        end 
+        puts "[+] Random skiplist created"
+        sk
+    end
+
+    ## return a skiplist  out of the list of snapshots and the config
+    def self.create_skiplist_normal snapshots, config
         ## compute the table of b^(i-1) for 0 <= i <= h
         #  [ [ b^i-1 ] , i (height-1)]
-        table = (config.height-1).downto(0).map { |i| [config.base**i,i] }
+        table = (config.height).downto(0).map { |i| [config.base**i,i] }
         ## create the blocks
-        
         sk = Skipchain::Skiplist.new config.base,config.height
         snapshots.each_with_index.map do |snap,i| 
             entry = table.find{ |k,v| i % k == 0 }
-            sk.add snap,entry[1]+1
+            sk.add snap,entry[1]
         end
-        puts "[+] Skiplist created out of the snapshots"
+        puts "[+] Normal skiplist created"
         sk
     end
 

@@ -40,6 +40,9 @@ OptionParser.new do |opts|
         ## check if it's correct
         abort("[-] Unknown type of graph #{g}") unless [:cumulative,:scatter].include? @options[:graph]
     end
+    opts.on("-r","--random","Random generation of the skipblock's height (with maximum height specified with -i") do |r|
+        @options[:random] = true
+    end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
     end
@@ -81,7 +84,7 @@ def main
     puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
     result = nil
     new_mockup do |mockup|
-        config = Skipchain::Config.new(@options[:base],@options[:height])
+        config = Skipchain::Config.new(@options[:base],@options[:height],@options[:random])
         ## first get the list of snapshots
         snaps = mockup.snapshots @options[:snap_head]
         ## construct the skiplist out of it
