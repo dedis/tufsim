@@ -195,7 +195,7 @@ module Skipchain
         def add snap, height
             super snap,height
             @heights[height] << @timestamps[snap.timestamp] 
-#            @heights_timestamp[snap.timestamp] = @heights[height].size 
+
         end
 
         def next snapshot, level = 0
@@ -204,8 +204,8 @@ module Skipchain
                     @skipblocks.last
             end
             oldi = @timestamps[snapshot.timestamp]
-            idx = @heights[level].find{ |i| i > oldi && @timestamps[i].timestamp > snapshot.timestamp } || @skipblocks.last
-            @timestamps[idx]
+            block = @skipblocks[oldi..-1].each_with_index.find { |s,i| s.height >= level} 
+            block = block[0] || @skipblocks.last
         end
 #            ## all the snapshots at this level
             #list_level = @heights[level]
