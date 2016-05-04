@@ -203,9 +203,8 @@ module Skipchain
                 return @skipblocks[@timestamps[snapshot.timestamp]+1] ||
                     @skipblocks.last
             end
-            oldi = @timestamps[snapshot.timestamp]
-            block = @skipblocks[oldi..-1].each_with_index.find { |s,i| s.height >= level} 
-            block = block[0] || @skipblocks.last
+            oldi = @timestamps[snapshot.timestamp] + 1
+            @skipblocks[oldi..-1].find { |s| s.height >= level}  || @skipblocks.last
         end
 #            ## all the snapshots at this level
             #list_level = @heights[level]
