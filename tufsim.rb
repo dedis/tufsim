@@ -47,6 +47,9 @@ OptionParser.new do |opts|
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
     end
+    opts.on("--thread","Using multithreading (best use with JRuby!") do |th|
+        @options[:threads] = true
+    end
     opts.on("-o","--out FILE","File to output result") do |o|
         @options[:out] = o
     end

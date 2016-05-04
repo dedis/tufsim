@@ -57,11 +57,43 @@ module Processor
             Processor.cache_diff[key]
         end
     
+        ## function to call to process all the timestamps of clients
+        def process_block
+            @options[:threads] ? process_block_threading : process_block_mono
+        end
 
-        ## process returns hashmap with
+        ## process_block using threads
+        def process_block_threading
+            
+            h = Hash.new { |h,k| h[k] = [] }
+            procs = Etc.nprocessors
+            threads = []
+            RubyUtil::partition @updates.keys, procs do |ips|
+                threads << Thread.new do 
+                    res = process_block_ips(ips)
+                    Thread.current[:res] = res
+                end
+            end
+            threads.each do |t|
+                t.join
+                h.merge!(t[:res]) { |k,old,new| old + new }
+            end
+            h = Hash[h.sort]
+            format_data h
+        end
+
+        ## process_block using one thread
+        def process_block_mono
+            res = process_block_ips @updates.keys
+            res = Hash[res.sort]
+            format_data res
+        end
+
+        ## process_block_ips takes the list of client IP to anaylze and 
+        #returns hashmap with
         ## KEYS => timestamp of snapshots 
         #  VALUES => cumulative bandwitdth consumption by clients
-        def process_block
+        def process_block_ips ips
             ## hash containing all values for all clients per timestamp that will
             #be averaged at the end
             # Key => timestamp of snapshosts
@@ -71,9 +103,10 @@ module Processor
 
             # lets go over one client at a time  
             count = 0
-            @updates.each do |ip,tss|
+            ips.each do |ip|
+                tss = @updates[ip]
                 count += 1
-                perc = count.to_f / @updates.size.to_f * 100.0
+                perc = count.to_f / ipts.size.to_f * 100.0
                 puts "[+] Processing done for #{perc} %" if perc % 1.0 == 0.0 if @options[:v]
                 #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
                 next if tss.size == 1
@@ -96,8 +129,7 @@ module Processor
                 end
             end  
             puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
-            h = Hash[h.sort]
-            format_data h
+            h
         end
 
         def format_data hash
