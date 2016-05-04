@@ -31,6 +31,7 @@ module Processor
 
         require_relative 'ruby_util'
         require 'etc'
+        require 'thread'
 
         def initialize mockup,updates,skiplist,options
             @mockup = mockup
@@ -38,6 +39,7 @@ module Processor
             @skiplist = skiplist
             @options = options
             @diff_cache = {}
+            @mutex = Mutex.new
         end
 
         def name
@@ -50,13 +52,15 @@ module Processor
 
         ## returns the diff in bytes between two snapshots
         def get_diff s1,s2
-            key = "#{s1.name}:#{s2.name}"
-            if Processor.cache_diff[key] == nil
-                Processor.cache_diff[key] = @mockup.get_diff_size s1,s2
-            end
-            Processor.cache_diff[key]
+            @mutex.synchronize {
+                key = "#{s1.name}:#{s2.name}"
+                if Processor.cache_diff[key] == nil
+                    Processor.cache_diff[key] = @mockup.get_diff_size s1,s2
+                end
+                Processor.cache_diff[key]
+            }
         end
-    
+
         ## function to call to process all the timestamps of clients
         def process_block &block
             @options[:threads] ? process_block_threading(&block): process_block_mono(&block)
@@ -64,12 +68,12 @@ module Processor
 
         ## process_block using threads
         def process_block_threading &block
-            
+
             h = Hash.new { |h,k| h[k] = [] }
             procs = Etc.nprocessors
             threads = []
-            RubyUtil::partition @updates.keys, procs do |ips,i|
-                puts "[+] Starting new thread ##{i} with #{ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates" #if @options[:v]
+            RubyUtil::slice @updates.keys, procs do |ips,i|
+                puts "[+] Starting new thread ##{i} with #{ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates for #{ips.size} clients" if @options[:v]
                 threads << Thread.new do 
                     Thread.current[:thread] = i
                     res = process_block_ips ips, &block
@@ -110,11 +114,14 @@ module Processor
             ips.each do |ip|
                 tss = @updates[ip]
                 count += 1
-                perc = (count.to_f / ips.size.to_f * 100.0).round
-                if Thread.current[:thread]
-                    puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" if perc % 25 == 0 if @options[:v]
-                else
-                    puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
+                perc = (count.to_f / ips.size.to_f * 100.0)
+                ok = perc == perc.round && perc.round % 25 == 0
+                if ok && @options[:v]
+                    if Thread.current[:thread]
+                        puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" 
+                    else
+                        puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
+                    end
                 end
                 #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
                 next if tss.size == 1
@@ -199,6 +206,7 @@ module Processor
         end
     end
 
+    ##
     class Tuf < Processor::Generic
         def process
             res = process_block do |base_snap, next_snap|
@@ -214,7 +222,6 @@ module Processor
             end
         end
     end
-
 
     # Tuf simply analyzes the direct diff between two blocks
     class Diplomat < Processor::Generic
