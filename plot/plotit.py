@@ -10,7 +10,7 @@ os.environ["LANG"] = "en_US.UTF-8"
 
 import sys
 
-sys.path.insert(1, '..')
+sys.path.insert(1, '.')
 from mplot import MPlot
 from stats import CSVStats
 import matplotlib.pyplot as plt
@@ -21,9 +21,11 @@ def plotData(data, name,
              xlabel="Time since last update", ylabel="Bandwidth",
              xticks=[], loglog=[0, 0], xname="time",
              legend_pos="lower right",
+             yname="bandwidth",
              yminu=0, ymaxu=0,
              xminu=0, xmaxu=0,
-             title="", read_plots=True):
+             title="", read_plots=True,
+             restart_x=False):
     mplot.plotPrepareLogLog(loglog[0], loglog[1])
     if read_plots:
         plots = read_csvs_xname(xname, *data[0])
@@ -33,12 +35,21 @@ def plotData(data, name,
     ranges = []
     data_label = []
     plot_show(name)
+    subx = 0
+    if restart_x:
+        subx = plots[0].columns[xname][0]
 
     for index, label in enumerate(data[1]):
         data_label.append([plots[index], label])
+        # plots[index].print_short()
+        if restart_x:
+            print subx
+            plots[index].column_add(xname, -subx)
+            plots[index].get_values("time")
+
         ranges.append(
-            mplot.plotMMA(plots[index], 'cumul_bandwidth', colors[index][0], 4,
-                          dict(label=label, linestyle='-', marker='o',
+            mplot.plotMMA(plots[index], yname, colors[index][0], 4,
+                          dict(label=label, linestyle='-', marker='.',
                                color=colors[index][1], zorder=5)))
 
     # Make horizontal lines and add arrows for JVSS
@@ -67,51 +78,69 @@ def plotData(data, name,
     return data_label
 
 
-# Pl
+sc_plots = ['cumul_tuf', 'cumul_sc_2_0',
+            'cumul_sc_2_5',
+            'cumul_sc_5_5',
+            'cumul_sc_7_5',
+            'cumul_sc_11_5']
+sc_scatter = ['scatter_tuf', 'scatter_2_0',
+            'scatter_2_5',
+            'scatter_5_5',
+            'scatter_7_5',
+            'scatter_11_5']
+sc_titles = ['TUF', 'SkipChain${_2}{^0}$',
+             'SkipChain${_2}{^5}$',
+             'SkipChain${_5}{^5}$',
+             'SkipChain${_7}{^5}$',
+             'SkipChain$11{^5}$']
+
+
+# Plot the total bandwidth of all users over the given time
 def plotCumulative():
-    plotData([['skipchain_0'],
-              ['1']], 'comparison_roundtime')
+    plotData([sc_plots, sc_titles],
+             'cumulative_abs',
+             restart_x=True, legend_pos="upper left")
+
+def plotCumulDiff():
+    mplot.plotPrepareLogLog(0, 0)
+    plot_show('cumulative_diff')
+    plt.ylabel('Bandwidth [bytes]')
+    plt.xlabel('Time since start [s]')
+    data = read_csvs_xname("time", *sc_plots)
+    styles = ["-"] * 3 + [":"] * 1 + ["--"] * 1 + ["-."] * 2
+    subx = data[0].x[0]
+    for index, label in enumerate(sc_titles):
+        if index == 0:
+            continue
+        data[index].columns_sub(data[0], "bandwidth", "diff_bandwidth")
+        data[index].column_add("time", -subx)
+        data[index].get_values("time")
+        plt.plot(data[index].x, data[index].columns["diff_bandwidth"],
+                      label=label, color=colors[index][1], linestyle=styles[index])
+    plt.legend(loc="upper left")
     mplot.plotEnd()
 
-
-# Plots a Cothority and a JVSS run with regard to their averages. Supposes that
-# the last two values from JVSS are off-grid and writes them with arrows7
-# directly on the plot
-def plotSysUser():
-    mplot.plotPrepareLogLog()
-    plots = read_csvs('jvss', 'naive_cosi', 'sysusr_ntree', 'sysusr_cosi')
-    plot_show('comparison_sysusr')
-
-    if False:
-        for index in range(1, len(plots[3].x)):
-            for p in range(0, len(plots)):
-                if index < len(plots[p].x):
-                    plots[p].delete_index(index)
-
-    ymin = 0.05
-    bars = []
-    deltax = -1.5
-    for index, label in enumerate(['JVSS', 'Naive', 'NTree', 'CoSi']):
-        bars.append(mplot.plotStackedBarsHatched(plots[index], "round_system",
-                                                 "round_user", label,
-                                                 colors[index][0],
-                                                 ymin, delta_x=deltax + index)[
-                        0])
-
-    ymax = 32
-    xmax = 50000
-    plt.ylim(ymin, ymax)
-    plt.xlim(1, xmax)
-
-    usert = mpatches.Patch(color='white', ec='black', label='User',
-                           hatch='//')
-    syst = mpatches.Patch(color='white', ec='black', label='System')
-
-    plt.legend(handles=[bars[0], bars[1], bars[2], bars[3], usert, syst],
-               loc=u'upper left')
-    plt.ylabel("Average CPU seconds per round")
-    ax = plt.axes()
-    ax.set_xticks([2,8,32,128,512,2048,8192, 32768])
+# Plots a scatterplot of all users
+def plotScatter():
+    mplot.plotPrepareLogLog(0, 0)
+    plot_show('scatter')
+    plt.ylabel('Bandwidth [bytes]')
+    plt.xlabel('Time since start [s]')
+    data = read_csvs_xname("time", *sc_scatter)
+    styles = ["^"] * 4 + ["s"] * 4
+    ranges = []
+    for index, label in enumerate(sc_titles):
+        if index == 0:
+            continue
+        plot = data[index]
+        y = plot.get_values("bandwidth")
+        ranges.append(y)
+        plt.scatter(plot.x, y.y, label=label,
+                    color=colors[index][1], marker=styles[index])
+    plt.legend(loc="upper left")
+    xmin, xmax, ymin, ymax = CSVStats.get_min_max(*ranges)
+    plt.xlim(0, xmax)
+    plt.ylim(0, ymax)
     mplot.plotEnd()
 
 
@@ -120,6 +149,13 @@ colors = [['lightgreen', 'green'],
           ['lightblue', 'blue'],
           ['yellow', 'brown'],
           ['pink', 'red'],
+          ['lightgreen', 'green'],
+          ['lightblue', 'blue'],
+          ['yellow', 'brown'],
+          ['pink', 'red'],
+          ['lightgreen', 'green'],
+          ['lightblue', 'blue'],
+          ['yellow', 'brown'],
           ['pink', 'red']]
 mplot = MPlot()
 
@@ -145,10 +181,12 @@ def read_csvs(*values):
 write_file = True
 # What file extension - .png, .eps
 file_extension = 'png'
-file_extension = 'eps'
+# file_extension = 'eps'
 # Show figure
 mplot.show_fig = False
-mplot.show_fig = True
+# mplot.show_fig = True
 
 # Call all plot-functions
 plotCumulative()
+plotCumulDiff()
+plotScatter()

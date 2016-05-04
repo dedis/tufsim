@@ -3,7 +3,6 @@
 import csv
 import unittest
 
-
 # Our CSVs have a space after the comma, so we need a new 'dialect', here
 # called 'deploy'
 csv.register_dialect('deploy', delimiter=',', doublequote=False, quotechar='',
@@ -77,23 +76,54 @@ class CSVStats:
                     old_depth[x] = depth
         return old_depth
 
+    def column_names(self, c):
+        ret = []
+        for cn in ['', '_avg', '_min', '_max', '_dev']:
+            if c + cn in self.columns:
+                ret.append(cn)
+        return ret
+
     # adjust that column-avg,min,max with that value
     def column_add(self, column, dx):
         for i in range(0, len(self.x)):
-            for t in ['avg', 'min', 'max']:
-                self.columns[column + "_" +t][i] += dx
+            for t in self.column_names(column):
+                self.columns[column + t][i] += dx
+
+    # add both columns element-wise and save in new column
+    def columns_add(self, other, name, result):
+        for t in self.column_names(name):
+            if not result + t in self.columns:
+                self.columns[result + t] = [0] * len(self.x)
+            for i in range(0, len(self.x)):
+                self.columns[result + t][i] = \
+                    self.columns[name + t][i] + other.columns[name + t][i]
+
+    # substract c2 from c1 and store in new column
+    def columns_sub(self, other, name, result):
+        for t in self.column_names(name):
+            if not result + t in self.columns:
+                self.columns[result + t] = [0] * len(self.x)
+            for i in range(0, len(self.x)):
+                self.columns[result + t][i] = \
+                    self.columns[name + t][i] - other.columns[name + t][i]
 
     # adjust that column-avg,min,max by multiplying with that value
     def column_mul(self, column, dx):
         for i in range(0, len(self.x)):
-            for t in ['avg', 'min', 'max']:
-                self.columns[column + "_" +t][i] *= dx
+            for t in self.column_names(column):
+                self.columns[column + t][i] *= dx
 
     # Cut that index out of all columns
     def delete_index(self, i):
         for c in self.columns.keys():
             if len(self.x) == len(self.columns[c]):
                 del self.columns[c][i]
+
+    def print_short(self):
+        print self.file
+        print self.columns.keys()
+        for c in self.columns:
+            print c, len(self.columns[c])
 
 
 # Value holds the min / max / avg / dev for a single named value
@@ -102,12 +132,18 @@ class Values:
         self.name = column
         self.columns = columns
         self.x = x
+        self.y = columns[column]
 
         # Set min, max, avg, dev-values from csv-file
-        self.min = self.has_column(column + "_min")
-        self.max = self.has_column(column + "_max")
-        self.avg = self.has_column(column + "_avg")
-        self.dev = self.has_column(column + "_dev")
+        if column + "_avg" in self.columns:
+            self.min = self.has_column(column + "_min")
+            self.max = self.has_column(column + "_max")
+            self.avg = self.has_column(column + "_avg")
+            self.dev = self.has_column(column + "_dev")
+        else:
+            self.min = self.columns[column]
+            self.max = self.columns[column]
+            self.avg = self.columns[column]
         self.ymin = min(self.min)
         self.ymax = max(self.max)
 
