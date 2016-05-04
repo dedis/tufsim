@@ -28,28 +28,80 @@ module RubyUtil
     # to when to partition a task
     # collection must respond to slice
     CHUNK_SIZE = 100
-    def self.partition collection, chunk_size = CHUNK_SIZE
-        return unless block_given?
-        # No need for partitionning
+    def self.partition_by_size collection, chunk_size = CHUNK_SIZE
+        return collection unless block_given?
+        # No need for partitioning
         if collection.size <= chunk_size
-            yield collection
+            yield collection, 0
             return
         end
 
         counter = collection.size / chunk_size
         rest = collection.size % chunk_size
+        puts "RubyUtil::counter = #{counter} & rest #{rest}"
         # yield for each "slice"
         counter.times do |n|
             low = n * chunk_size
             sub = collection.slice(low,chunk_size) 
-            yield sub
+            yield sub,n
         end
         unless rest == 0
             # yield for the rest
             sub = collection.slice( counter*chunk_size, (counter*chunk_size) + rest)
-            yield sub
+            yield sub,counter
         end
     end
+
+    ## how many slice do 
+    #
+    def self.slice collection, slice_number 
+        return collection unless block_given?
+        # No need for partitioning
+        if collection.size <= slice_number
+            yield collection, 0
+            return
+        end
+
+        size_chunk = collection.size / slice_number
+        size_rest = collection.size - (slice_number * size_chunk) 
+        puts "RubyUtil::slice size_chunk= #{size_chunk} & rest #{size_rest}"
+        # yield for each "slice"
+        (slice_number-1).times do |n|
+            low = n * size_chunk
+            sub = collection.slice(low,slice_number)
+            yield sub,n
+        end
+        low = slice_number * size_chunk
+        sub = collection.slice(low,size_rest)
+        yield sub,slice_number
+    end
+
+
+    #module UnitsTest
+        #require 'test/unit'
+        #class TestRubyUtil < Test::Unit::TestCase
+
+        #def test_partition
+            #a = (0...100).to_a 
+            #times = 0
+            #RubyUtil::partition a,25 do |col,i|
+                #assert_equal(25,col.size)
+                #assert(times < 4)
+                #assert(times == i)
+                #times += 1
+            #end
+
+            #a = (0...120).to_a
+            #times = 0
+            #RubyUtil::partition a,25 do |col,i|
+                #assert_equal(times,i)
+                #assert(times < 5)
+                #assert(col.size == 20) if i == 4
+                #times += 1
+            #end
+        #end
+    #end
+    #end
 
     ## Can symbolize keys of a Hash, or every elements of an Array
     # Can apply a preprocessing step on the element with :send opts,

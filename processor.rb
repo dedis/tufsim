@@ -31,6 +31,7 @@ module Processor
 
         require_relative 'ruby_util'
         require 'etc'
+        require 'thread'
 
         def initialize mockup,updates,skiplist,options
             @mockup = mockup
@@ -38,6 +39,7 @@ module Processor
             @skiplist = skiplist
             @options = options
             @diff_cache = {}
+            @mutex = Mutex.new
         end
 
         def name
@@ -50,18 +52,56 @@ module Processor
 
         ## returns the diff in bytes between two snapshots
         def get_diff s1,s2
-            key = "#{s1.name}:#{s2.name}"
-            if Processor.cache_diff[key] == nil
-                Processor.cache_diff[key] = @mockup.get_diff_size s1,s2
+            @mutex.synchronize {
+                key = "#{s1.name}:#{s2.name}"
+                if Processor.cache_diff[key] == nil
+                    Processor.cache_diff[key] = @mockup.get_diff_size s1,s2
+                end
+                Processor.cache_diff[key]
+            }
+        end
+
+        ## function to call to process all the timestamps of clients
+        def process_block &block
+            @options[:threads] ? process_block_threading(&block): process_block_mono(&block)
+        end
+
+        ## process_block using threads
+        def process_block_threading &block
+
+            h = Hash.new { |h,k| h[k] = [] }
+            procs = Etc.nprocessors
+            threads = []
+            RubyUtil::slice @updates.keys, procs do |ips,i|
+                puts "[+] Starting new thread ##{i} with #{ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates for #{ips.size} clients" if @options[:v]
+                threads << Thread.new do 
+                    Thread.current[:thread] = i
+                    res = process_block_ips ips, &block
+                    Thread.current[:res] = res
+                end
             end
-            Processor.cache_diff[key]
+            puts "[+] Use of #{procs} (#{threads.size}) threads (# processors)" if @options[:v]
+            threads.each do |t|
+                t.join
+                h.merge!(t[:res]) { |k,old,new| old + new }
+            end
+            h = Hash[h.sort]
+            format_data h
+        end
+
+        ## process_block using one thread
+        def process_block_mono &block
+            res = process_block_ips @updates.keys, &block
+            res = Hash[res.sort]
+            format_data res
         end
 
 
-        ## process returns hashmap with
+        ## process_block_ips takes the list of client IP to anaylze and 
+        #returns hashmap with
         ## KEYS => timestamp of snapshots 
         #  VALUES => cumulative bandwitdth consumption by clients
-        def process_block
+        def process_block_ips ips
             ## hash containing all values for all clients per timestamp that will
             #be averaged at the end
             # Key => timestamp of snapshosts
@@ -71,10 +111,18 @@ module Processor
 
             # lets go over one client at a time  
             count = 0
-            @updates.each do |ip,tss|
+            ips.each do |ip|
+                tss = @updates[ip]
                 count += 1
-                perc = count.to_f / @updates.size.to_f * 100.0
-                puts "[+] Processing done for #{perc} %" if perc % 1.0 == 0.0 if @options[:v]
+                perc = (count.to_f / ips.size.to_f * 100.0)
+                ok = perc == perc.round && perc.round % 25 == 0
+                if ok && @options[:v]
+                    if Thread.current[:thread]
+                        puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" 
+                    else
+                        puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
+                    end
+                end
                 #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
                 next if tss.size == 1
                 ## let's calculate each diff
@@ -95,12 +143,11 @@ module Processor
                     base_ts = next_ts
                 end
             end  
-            puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
-            h = Hash[h.sort]
-            format_data h
+            h
         end
 
         def format_data hash
+            puts "[+] #{hash.keys.size} distinct client updates timestamp found" if @options[:v]
             case @options[:graph]
             when :cumulative
                 flatten hash
@@ -159,6 +206,7 @@ module Processor
         end
     end
 
+    ##
     class Tuf < Processor::Generic
         def process
             res = process_block do |base_snap, next_snap|
@@ -174,7 +222,6 @@ module Processor
             end
         end
     end
-
 
     # Tuf simply analyzes the direct diff between two blocks
     class Diplomat < Processor::Generic
