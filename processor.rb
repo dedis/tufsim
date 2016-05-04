@@ -165,9 +165,7 @@ module Processor
                 bytes_diff = 0
                 curr_snap = base_snap
                 loop do
-                    print "Tuf::Loop"
                     intermediate = @skiplist.next(curr_snap,0)
-                    print "::Finished\n"
                     bytes_diff += get_diff curr_snap,intermediate
                     curr_snap = intermediate
                     break if intermediate == next_snap

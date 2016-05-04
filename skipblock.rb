@@ -199,6 +199,10 @@ module Skipchain
         end
 
         def next snapshot, level = 0
+            if level == 0
+                return @skipblocks[@timestamps[snapshot.timestamp]+1] ||
+                    @skipblocks.last
+            end
             ## all the snapshots at this level
             list_level = @heights[snapshot.height]
             ## index of the snapshot in this list
