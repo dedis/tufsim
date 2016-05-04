@@ -29,8 +29,8 @@ module RubyUtil
     # collection must respond to slice
     CHUNK_SIZE = 100
     def self.partition collection, chunk_size = CHUNK_SIZE
-        return unless block_given?
-        # No need for partitionning
+        return collection unless block_given?
+        # No need for partitioning
         if collection.size <= chunk_size
             yield collection, 0
             return
@@ -48,6 +48,29 @@ module RubyUtil
             # yield for the rest
             sub = collection.slice( counter*chunk_size, (counter*chunk_size) + rest)
             yield sub,counter+1
+        end
+    end
+
+    require 'test/unit'
+    class TestRubyUtil < Test::Unit::TestCase
+
+        def test_partition
+            a = (0...100).to_a 
+            times = 0
+            RubyUtil::partition a,25 do |col,i|
+                assert_equal(25,col.size)
+                assert(times < 4)
+                assert(times == i)
+                times += 1
+            end
+
+            a = (0...120).to_a
+            times = 0
+            RubyUtil::partition a,25 do |col,i|
+                assert_equal(times,i)
+                assert(times < 5)
+                assert(col.size == 20) if i == 4
+            end
         end
     end
 

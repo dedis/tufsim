@@ -22,10 +22,10 @@ module Processor
 
     class Generic
 
-        COLUMN_UPDATE = :updates
+        COLUMN_HEIGHT = :height
         COLUMN_TIME = :time
 
-        DEFAULT_COLUMN = [COLUMN_TIME,COLUMN_UPDATE]
+        DEFAULT_COLUMNS = [COLUMN_HEIGHT,COLUMN_TIME]
 
         include Processor
 
@@ -58,24 +58,25 @@ module Processor
         end
     
         ## function to call to process all the timestamps of clients
-        def process_block
-            @options[:threads] ? process_block_threading : process_block_mono
+        def process_block &block
+            @options[:threads] ? process_block_threading(&block): process_block_mono(&block)
         end
 
         ## process_block using threads
-        def process_block_threading
+        def process_block_threading &block
             
             h = Hash.new { |h,k| h[k] = [] }
             procs = Etc.nprocessors
             threads = []
             RubyUtil::partition @updates.keys, procs do |ips,i|
-                puts "[+] Starting new thread with #{@ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates" if @options[:v]
+                puts "[+] Starting new thread ##{i} with #{ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates" #if @options[:v]
                 threads << Thread.new do 
                     Thread.current[:thread] = i
-                    res = process_block_ips(ips)
+                    res = process_block_ips ips, &block
                     Thread.current[:res] = res
                 end
             end
+            puts "[+] Use of #{procs} (#{threads.size}) threads (# processors)" if @options[:v]
             threads.each do |t|
                 t.join
                 h.merge!(t[:res]) { |k,old,new| old + new }
@@ -85,11 +86,12 @@ module Processor
         end
 
         ## process_block using one thread
-        def process_block_mono
-            res = process_block_ips @updates.keys
+        def process_block_mono &block
+            res = process_block_ips @updates.keys, &block
             res = Hash[res.sort]
             format_data res
         end
+
 
         ## process_block_ips takes the list of client IP to anaylze and 
         #returns hashmap with
@@ -108,7 +110,7 @@ module Processor
             ips.each do |ip|
                 tss = @updates[ip]
                 count += 1
-                perc = (count.to_f / ipts.size.to_f * 100.0).round
+                perc = (count.to_f / ips.size.to_f * 100.0).round
                 if Thread.current[:thread]
                     puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" if perc % 25 == 0 if @options[:v]
                 else
@@ -138,7 +140,7 @@ module Processor
         end
 
         def format_data hash
-            puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
+            puts "[+] #{hash.keys.size} distinct client updates timestamp found" if @options[:v]
             case @options[:graph]
             when :cumulative
                 flatten hash
@@ -147,13 +149,17 @@ module Processor
             end
         end
 
+        def default_values time
+            [@skiplist.height,time]
+        end 
+
         ## scatter will return one row per update of clients
         def scatter hash
             res = hash.inject([]) do |acc,(time,values)|
-                values.each { |v| acc << [time,v] } 
+                values.each { |v| acc << (default_values(time) << v) } 
                 acc
             end
-            [[COLUMN_TIME,name], res]
+            [DEFAULT_COLUMNS + [name], res]
         end
 
         ## flatten out results by taking the cumulative bandwidth for each timestamp
@@ -168,15 +174,9 @@ module Processor
             values = values = hash.inject([]) do |acc, (time,values) |
                 sum = values.inject(0) { |sum,bw| sum += bw }
                 cumul += sum
-                acc << [time,values.size,cumul]
+                acc << (default_values(time) << values.size << cumul)
             end
-            [[COLUMN_TIME,COLUMN_UPDATE,name], values]
-        end
-
-        def shift_default_value row
-            def_values =  []
-            0.upto(DEFAULT_COLUMN.size-1).each { def_values << row.shift }
-            def_values
+            [DEFAULT_COLUMNS + [:updates,name], values]
         end
 
     end
@@ -199,9 +199,25 @@ module Processor
         end
     end
 
+    class Tuf < Processor::Generic
+        def process
+            res = process_block do |base_snap, next_snap|
+                bytes_diff = 0
+                curr_snap = base_snap
+                loop do
+                    intermediate = @skiplist.next(curr_snap,0)
+                    bytes_diff += get_diff curr_snap,intermediate
+                    curr_snap = intermediate
+                    break if intermediate == next_snap
+                end
+                bytes_diff
+            end
+        end
+    end
+
 
     # Tuf simply analyzes the direct diff between two blocks
-    class Tuf < Processor::Generic
+    class Diplomat < Processor::Generic
         def process
             res  = process_block do |base_snap, next_snap|
                 # simply get the diff between the two
@@ -245,25 +261,5 @@ module Processor
         end
     end
 
-    ## All regroups Level0, Tuf and Skiplist
-    class All < Processor::Generic
-        require 'set'
-        def process
-            columns = Set.new
-            values = ["Tuf","Height0","Skiplist"].inject([]) do |acc, p|
-                results = Processor::process p, @mockup,@updates, @skiplist, @options
-                columns.merge results.shift 
-                ## take all but the first data (which is the time,only the first
-                #time)
-                results.first.each_with_index do |row,i| 
-                    defs = shift_default_value row
-                    acc[i] =  defs if acc[i].nil?
-                    acc[i] += row
-                end
-                acc
-            end
-            [columns.to_a,values]
-        end
-    end
 
 end
