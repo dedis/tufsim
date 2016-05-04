@@ -120,8 +120,8 @@ module Mockup
         #  packages that must be updated (i.e. downloaded) => returns # bytes
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
-            diff = Diffy::Diff.new(s1.name,s2.name,:source => "files")
-                        
+	    dir = "/root/tuf/"
+            diff = Diffy::Diff.new(dir + s1.name,dir + s2.name,:source => "files", :context => 1)
             mockup_get_diff_size diff.to_s.each_line
         end
 
