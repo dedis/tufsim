@@ -119,7 +119,7 @@ def format_name name,skiplist
     dirname = File.dirname(name)
     id = @options[:processor].downcase.to_s
     if id == "skiplist"
-      id = skiplist.base.nil? ? skiplist.random.round(2) : skiplist.base
+      id = skiplist.base.nil? ? skiplist.random.round(3) : skiplist.base
       id = "#{id}_#{skiplist.height}"
     end
     new = "#{fname}_#{id}#{File.extname(name)}"
