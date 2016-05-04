@@ -117,8 +117,12 @@ end
 def format_name name,skiplist
     fname = File.basename(name,File.extname(name))
     dirname = File.dirname(name)
-    first = skiplist.base.nil? ? skiplist.random.round(2) : skiplist.base
-    new = fname + "_#{first}_#{skiplist.height}#{File.extname(name)}"
+    id = @options[:processor].downcase.to_s
+    if id == "skiplist"
+      id = skiplist.base.nil? ? skiplist.random.round(2) : skiplist.base
+      id = "#{id}_#{skiplist.height}"
+    end
+    new = "#{fname}_#{id}#{File.extname(name)}"
     File.join(dirname,new)
 end
 

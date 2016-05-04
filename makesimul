@@ -15,7 +15,7 @@ tufsim(){
   FNAME=$1.csv
   shift
   echo
-  echo Creating $FNAME
+  echo Creating $FNAME $ARGS
   time ./tufsim.rb $@ $ARGS -o $FNAME
 }
 
