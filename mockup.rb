@@ -33,7 +33,7 @@ module Mockup
         @packages
     end
 
-    def compute_snapshots_list
+    def compute_snapshots_list head = nil
         @snapshots ||= begin
                            snapshots = []
                            output = ""
@@ -42,7 +42,8 @@ module Mockup
                            output = yield cmd
                            ## populate the list of snapshots
                            snapshots = []
-                           output.each_line do |fname|
+                           output.each_line.each_with_index do |fname,i|
+                               next if head && i > head
                                time = fname.match(/snapshot\.(.*)\.json/)[1]
                                snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
                            end
@@ -52,72 +53,63 @@ module Mockup
     end
 
     ## store in memory the update of all clients
-    def analyze_client_update_file  fname, mapping, filtering = true
-        abort("[-] Client log file absent.") unless File.exists? fname
-        ## hash[ip] = timestamps
-        clientsMap = Hash.new { |h,k| h[k] = [] }
-        countUpdate = 0
-        File.foreach(fname) do |line|
-            time, ip = line.gsub(" ","").chomp.split ","
-            time = mapping.call(time.to_i)
-            clientsMap[ip.gsub(" ","").chomp] << time
-            countUpdate += 1
-        end
-        before = countUpdate
-        clientsMap.inject(clientsMap) do |h,(k,v)| 
-             next h unless v.size == 1 
-             countUpdate -= 1
-             h.delete(k)
-             next h
-        end if filtering
-        puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
-        return clientsMap
+    def analyze_client_update_file  fname, mapping, head = nil
+        @clientsMap ||=
+            begin
+                abort("[-] Client log file absent.") unless File.exists? fname
+                ## hash[ip] = timestamps
+                clientsMap = Hash.new { |h,k| h[k] = [] }
+                countUpdate = 0
+                File.foreach(fname) do |line|
+                    next if head && countUpdate > head    
+                    time, ip = line.gsub(" ","").chomp.split ","
+                    time = mapping.call(time.to_i)
+                    clientsMap[ip.gsub(" ","").chomp] << time
+                    countUpdate += 1
+                end
+                before = countUpdate
+                clientsMap.inject(clientsMap) do |h,(k,v)| 
+                    next h unless v.size == 1 
+                    countUpdate -= 1
+                    h.delete(k)
+                    next h
+                end 
+                puts "[+] Retrieved #{clientsMap.size} clients with #{countUpdate}/#{before} updates"
+                clientsMap
+            end
     end
 
-    def mockup_get_diff_size s1,s2
-        name1,name2 = s1.name,s2.name
-        ## get the diff 
-        diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{name1} #{name2} | grep -E '^\+.*packages'"
-        cmd = "cd #{SNAPSHOT_PATH} && #{diffCmd}" 
-        out = yield cmd
-        abort("[-] Error diffing: " + out) if cmd =~ /diff: /
-
-        #countCmd = "cd #{SNAPSHOT_PATH} && diff -dbwB --unified=0 --suppress-common-lines #{name1} #{name2} | grep -E '^\+.*packages' | uniq -u | wc -l"
-        #puts "#{name1} vs #{name2} => #{@ssh.exec!(countCmd).chomp} vs LOCAL #{out.lines.count}"
-        #puts "DiffCommand = #{diffCmd}"
-        #puts "CountCommand = #{countCmd}"
-
+    def mockup_get_diff_size  ite
         ## analyze the diff
-        out.lines.inject(0) do |sum,line|
-            name,hash = line.split ":"
-            m = name.match(/packages\/(.+)\.json/)
-            abort "cmd #{cmd} \nout = #{out}" if m.nil?
-            name = m[1]
-            hash = hash.match(/([a-f0-9]+)/)[1]
+        ite.inject(0) do |sum,line|
+            next sum if not line =~ /\+.*packages\/(.+)\.json.*\"([a-f0-9]+)\"/
+            name = $1
+            hash = $2
             fname = name+"."+hash+".json"
             sum += @packages[fname]
         end
     end
 
+    def initialize opts
+        @options = opts
+    end
 
     class Local
         include Mockup
 
-        def initialize
-        end 
+        require 'diffy'
 
-
-        def snapshots
-            compute_snapshots_list { |cmd| `#{cmd}` }
+        def snapshots head = nil
+            compute_snapshots_list(head) { |cmd| `#{cmd}` }
         end
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil
+        def client_updates mapping = nil,head = nil
             mapping = lambda { |x| x } if mapping.nil?
             ## check if already downloaded
             abort ("[-] No user log file") unless File.exist? REMOTE_USER_FILE
-            return analyze_client_update_file(REMOTE_USER_FILE, mapping) 
+            return analyze_client_update_file(REMOTE_USER_FILE, mapping,head)
         end
 
         def packages_size
@@ -128,7 +120,9 @@ module Mockup
         #  packages that must be updated (i.e. downloaded) => returns # bytes
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
-            mockup_get_diff_size(s1,s2) { |cmd| `#{cmd}` } 
+            diff = Diffy::Diff.new(s1.name,s2.name,:source => "files")
+                        
+            mockup_get_diff_size diff.to_s.each_line
         end
 
 
@@ -138,29 +132,25 @@ module Mockup
     class SSH
         require 'net/ssh'
         require 'net/scp'
-        
+
         include Mockup
 
-        def initialize
-            @ssh = nil
-        end
-
         def connect
-            print "[+] Connecting to server..."
+            print "[+] Connecting to server..." if @options[:v]
             @ssh = Net::SSH.start(HOST,USER) 
-            print "OK\n"
+            print "OK\n" if @options[:v]
         end
 
         def close
-            print "[+] Closing connection to server..."
+            print "[+] Closing connection to server..." if @options[:v]
             @ssh.close
-            print "OK\n"
+            print "OK\n" if @options[:v]
         end
 
         ## retrieve the snapshots info from the 23.5gb compressed files hosted on our server
-        def snapshots
+        def snapshots head
             abort("[-] Not connected to server") if @ssh.nil?
-            compute_snapshots_list do |cmd| 
+            compute_snapshots_list(head) do |cmd| 
                 out = @ssh.exec!(cmd) 
                 out
             end
@@ -169,15 +159,15 @@ module Mockup
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil
+        def client_updates mapping = nil,head = nil
             mapping = lambda { |x| x } if mapping.nil?
             ## check if already downloaded
 
-            return analyze_client_update_file(LOCAL_USER_FILE, mapping) if File.exist? LOCAL_USER_FILE
+            return analyze_client_update_file(LOCAL_USER_FILE, mapping,head) if File.exist? LOCAL_USER_FILE
             ## otherwise download it
-            puts "[+] Downloading client log"
+            puts "[+] SSH - downloading client log"
             Net::SCP.download!(HOST,USER,REMOTE_USER_FILE,LOCAL_USER_FILE)
-            return analyze_client_update_file(LOCAL_USER_FILE,mapping)
+            return analyze_client_update_file(LOCAL_USER_FILE,mapping,head)
         end
 
         ## packages_size will load the sizes of all packages/* in memory
@@ -193,9 +183,10 @@ module Mockup
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
             @@aborting.call unless @ssh                
-            mockup_get_diff_size s1,s2 do |cmd|
-                @ssh.exec!(cmd) 
-            end
+            diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{s1.name} #{s2.name}"
+            cmd = "cd #{SNAPSHOT_PATH} && #{diffCmd}" 
+            out = @ssh.exec!(cmd) 
+            mockup_get_diff_size out.each_line
         end
 
     end

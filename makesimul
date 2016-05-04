@@ -1,0 +1,41 @@
+#!/bin/bash
+SNAP=3000
+CLIENT=10000
+FILE=cumul
+GEN=cumulative
+
+mkargs(){
+  ARGS="-g $GEN -t ssh -s $SNAP -c $CLIENT"
+  #ARGS="-g $GEN -t local"
+}
+
+sim_sc(){
+  BASE=$1
+  EXP=$2
+  FNAME=${FILE}_${BASE}_${EXP}.csv
+  echo Creating $FNAME
+  ./tufsim.rb skiplist $ARGS -b $BASE -i $EXP -o $FNAME
+}
+
+run_sim(){
+  ./tufsim.rb tuf $ARGS -o ${FILE}_tuf.csv 
+  ./tufsim.rb height0 $ARGS -o ${FILE}_sc_2_0.csv 
+  for base in 2 3 5 7 11; do
+    sim_sc $base 5
+  done
+}
+
+sim_cumul(){
+  mkargs
+  run_sim
+}
+
+sim_scatter(){
+  GEN=scatter
+  FILE=scatter
+  mkargs
+  run_sim
+}
+
+sim_cumul
+sim_scatter
