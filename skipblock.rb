@@ -143,18 +143,12 @@ module Skipchain
         config.random ? create_skiplist_random(snapshots,config) : create_skiplist_normal(snapshots,config)
     end
 
-    STOP = 1
-    MAX = 20
-
     def self.create_skiplist_random snapshots,config
         sk = Skipchain::SkiplistRandom.new config.base,config.height
         snapshots.each do |s|
-            height = (0..config.height).inject(0) do |acc,i| 
-                break acc if rand.round == STOP;
-                break acc if acc > MAX
-                acc+=1
-            end
-            sk.add s,height
+            h = 0
+            h += 1 while h < config.height && rand <= config.random 
+            sk.add s,h
         end 
         puts "[+] Random skiplist created"
         sk

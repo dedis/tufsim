@@ -22,6 +22,7 @@ OptionParser.new do |opts|
     opts.banner = "Usage tufsim.rb <processor> [options]"
     opts.on("-b","--base b1,b2,b3",Array,'Bases of the skiplist') do |b|
         @options[:base] = b.map(&:to_i)
+        @options[:base_set] = true
     end
     opts.on("-i","--heigh h1,h2,h3",Array, "Maximum height of the skiplist") do |h|
         @options[:height] = h.map(&:to_i)
@@ -40,8 +41,8 @@ OptionParser.new do |opts|
         ## check if it's correct
         abort("[-] Unknown type of graph #{g}") unless [:cumulative,:scatter].include? @options[:graph]
     end
-    opts.on("-r","--random","Random generation of the skipblock's height (with maximum height specified with -i") do |r|
-        @options[:random] = true
+    opts.on("-r","--random PROBABILITY","Random probability for generating the height (injection attack!)") do |r|
+        @options[:random] = eval(r).to_f 
     end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
@@ -61,6 +62,7 @@ end.parse!
 def args
     abort("[-] Not enough arguments") if ARGV.empty?
     @options[:processor]= ARGV.shift.capitalize.to_sym
+    abort("[-] Can't specify base and random at same time")  if @options[:base_set] && @options[:random]
 end
 
 def new_mockup
@@ -81,14 +83,14 @@ def new_mockup
 end
 
 def main
-    puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}> with base = #{@options[:base]} & height = #{@options[:height]}"
+    puts "[+] Tufsim.rb (#{@options[:type]}) <#{@options[:processor]}>"
     result = nil
     new_mockup do |mockup|
         ## first get the list of snapshots
         snaps = mockup.snapshots @options[:snap_head]
-        @options[:base].each do |b|
-
-            @options[:height].each do |h|
+        @options[:height].each do |h|
+            base = @options[:random] ? [:random] : @options[:base]
+            base .each do |b|
                 config = Skipchain::Config.new(b,h,@options[:random])
                 ## construct the skiplist out of it
                 skiplist = Skipchain::create_skiplist snaps, config
