@@ -41,8 +41,8 @@ OptionParser.new do |opts|
         ## check if it's correct
         abort("[-] Unknown type of graph #{g}") unless [:cumulative,:scatter].include? @options[:graph]
     end
-    opts.on("-r","--random PROBABILITY","Random probability for generating the height (injection attack!)") do |r|
-        @options[:random] = eval(r).to_f 
+    opts.on("-r","--random p1,p2,p3",Array,"Random probability for generating the height (injection attack!)") do |r|
+        @options[:random] = r.map { |str| eval(str).to_f } 
     end
     opts.on("-t","--type TYPE","Between SSH and LOCAL") do |t|
         @options[:type] = t.downcase.to_sym
@@ -88,40 +88,37 @@ def main
     new_mockup do |mockup|
         ## first get the list of snapshots
         snaps = mockup.snapshots @options[:snap_head]
-        @options[:height].each do |h|
-            base = @options[:random] ? [:random] : @options[:base]
-            base .each do |b|
-                config = Skipchain::Config.new(b,h,@options[:random])
-                ## construct the skiplist out of it
-                skiplist = Skipchain::create_skiplist snaps, config
-                ## fetch and map the client updates
-                updates = mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
+        factory = Skipchain::Factory.new @options
+        factory.each(snaps) do |skiplist|
+            #puts skiplist.stringify
+            ## fetch and map the client updates
+            updates = mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
 
-                ## run the processor
-                result  = Processor::process @options[:processor],mockup,updates, skiplist,@options
+            ## run the processor
+            result  = Processor::process @options[:processor],mockup,updates, skiplist,@options
 
-                puts "[+] Processing with base #{b} & height #{h} terminated"
+            puts "[+] Processing with #{skiplist.to_s.downcase} => Terminated"
 
-                ## write to file
-                name = format_name @options[:out],b,h
-                File.open(name,"w+") do |f|
-                    columns = (["base","height"] + result.shift).join(", ")  + "\n"
-                    f.write columns
-                    result.first.each do |values|
-                        f.write ([b,h] + values).join(", ") + "\n"
-                    end
+            ## write to file
+            name = format_name @options[:out],skiplist
+            File.open(name,"w+") do |f|
+                columns = result.shift.join(", ")  + "\n"
+                f.write columns
+                result.first.each do |values|
+                    f.write values.join(", ") + "\n"
                 end
-                puts "[+] Results written to #{name}"
-            end 
-        end
+            end
+            puts "[+] Results written to #{name}"
+        end 
     end
 end
 
 ## return file name in the form /path/to/file/file_b**_h**.ext
-def format_name name, base,height
+def format_name name,skiplist
     fname = File.basename(name,File.extname(name))
     dirname = File.dirname(name)
-    new = fname + "_b#{base}_h#{height}#{File.extname(name)}"
+    first = skiplist.base.nil? ? skiplist.random.round(2) : skiplist.base
+    new = fname + "_#{first}_#{skiplist.height}#{File.extname(name)}"
     File.join(dirname,new)
 end
 

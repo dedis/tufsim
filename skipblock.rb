@@ -2,10 +2,63 @@
 #simulate a skipchain out of the tuf data
 module Skipchain
 
+
     ## a skipchain has a fixed base and a fixed maximum height
     # head is if you want only to generate the skiplist for *head* snapshots
     # random is to create random height for each skipblock.
-    Config = Struct.new("Config",:base,:height,:random)
+    class Factory
+
+        def initialize options
+            @options = options
+        end
+
+        ## each will yield each different skiplist according to the options
+        def each snapshots
+            @options[:height].each do |h|
+                if @options[:base_set] 
+                    @options[:base].each do |b|
+                        yield create_skiplist_normal snapshots,b,h
+                    end
+                elsif @options[:random]
+                    @options[:random].each do |r|
+                        yield create_skiplist_random snapshots,r,h
+                    end 
+                else
+                    abort("[-] Wrong set of options")
+                end
+            end      
+        end
+
+        private
+
+        def create_skiplist_random snapshots,random,height
+            sk = Skipchain::SkiplistRandom.new random,height
+            snapshots.each do |s|
+                h = 0
+                h += 1 while h < height && rand <= random 
+                sk.add s,h
+            end 
+            puts "[+] Random #{random.round(2)} skiplist created"
+            sk
+        end
+
+        ## return a skiplist  out of the list of snapshots and the config
+        def create_skiplist_normal snapshots, base,height
+            ## compute the table of b^(i-1) for 0 <= i <= h
+            #  [ [ b^i-1 ] , i (height-1)]
+            table = height.downto(0).map { |i| [base**i,i] }
+            ## create the blocks
+            sk = Skipchain::Skiplist.new base,height
+            snapshots.each_with_index.map do |snap,i| 
+                entry = table.find{ |k,v| i % k == 0 }
+                sk.add snap,entry[1]
+            end
+            puts "[+] Normal skiplist created"
+            sk
+        end
+    end
+
+
 
     ## signature 
     BLOCK_SIZE_DEFAULT = 156
@@ -19,13 +72,16 @@ module Skipchain
             @snapshot = snapshot
             @height = height
         end
+
         def to_s 
             #s = @timestamp.to_s + " | " + @size.to_s 
             0.upto(@height.to_i).map{ "O" }.join(" -- ")
         end
+
         def timestamp
             @snapshot.timestamp
         end
+
         def name 
             @snapshot.name
         end
@@ -43,7 +99,10 @@ module Skipchain
     class Skiplist 
         attr_reader :timestamps
         attr_reader :skipblocks
-        
+        ## maximum height
+        attr_reader :height
+        attr_reader :base
+
         def initialize base,height
             @base = base
             @height = height
@@ -59,10 +118,6 @@ module Skipchain
 
         def each
             @skipblocks.each
-        end
-
-        def last
-            @skipblocks.last
         end
 
         ## next returns the next snapshot after this one
@@ -85,7 +140,6 @@ module Skipchain
             @skipblocks[idx]
         end
 
-        def 
 
         def stringify 
             @skipblocks.each_with_index.inject("") do |sum,(blk,i)| 
@@ -93,7 +147,7 @@ module Skipchain
                 sum += "\t: |\n"
             end
         end
-    
+
         ## map_client_update returns a function to map the timestamp of the client updates to the
         #nearest one from the skipblocks
         def mapping_client_update 
@@ -123,56 +177,43 @@ module Skipchain
                 ret_value
             end
         end
-    end 
+
+        def to_s
+            "Skiplist (deterministic): base = #{base}, height = #{height}"
+        end
+    end
 
     class SkiplistRandom < Skiplist
 
-        attr_reader :heights 
+        attr_reader :random
+
+        def initialize random,height
+            super(nil,height)
+            @random = random
+            @heights = Hash.new { |h,k| h[k] = [] }
+            @heights_timestamp = {}
+        end
 
         def add snap, height
             super snap,height
-            @heights ||= Hash.new { |h,k| h[k] = [] }
             @heights[height] << @timestamps[snap.timestamp] 
+            @heights_timestamp[snap.timestamp] = @heights[height].size 
         end
 
         def next snapshot, level = 0
-            idx = @timestamps[snapshot.timestamp]
-            nidx = @heights[level].find { |i| i > idx && @skipblocks[i].height == level } || @skipblocks.size-1
-            @skipblocks[nidx]
+            ## all the snapshots at this level
+            list_level = @heights[snapshot.height]
+            ## index of the snapshot in this list
+            idx = @heights_timestamp[snapshot.timestamp] 
+            ## index in the general list of skipblocks
+            block_id = list_level[idx+1] || @skipblocks.size-1
+            @skipblocks[block_id]
+        end
+
+        def to_s
+            "Skiplist (random): random = #{@random.round(2)}, height = #{height}"
         end
 
     end
-
-    def self.create_skiplist snapshots, config
-        config.random ? create_skiplist_random(snapshots,config) : create_skiplist_normal(snapshots,config)
-    end
-
-    def self.create_skiplist_random snapshots,config
-        sk = Skipchain::SkiplistRandom.new config.base,config.height
-        snapshots.each do |s|
-            h = 0
-            h += 1 while h < config.height && rand <= config.random 
-            sk.add s,h
-        end 
-        puts "[+] Random skiplist created"
-        sk
-    end
-
-    ## return a skiplist  out of the list of snapshots and the config
-    def self.create_skiplist_normal snapshots, config
-        ## compute the table of b^(i-1) for 0 <= i <= h
-        #  [ [ b^i-1 ] , i (height-1)]
-        table = (config.height).downto(0).map { |i| [config.base**i,i] }
-        ## create the blocks
-        sk = Skipchain::Skiplist.new config.base,config.height
-        snapshots.each_with_index.map do |snap,i| 
-            entry = table.find{ |k,v| i % k == 0 }
-            sk.add snap,entry[1]
-        end
-        puts "[+] Normal skiplist created"
-        sk
-    end
-
-    
 
 end
