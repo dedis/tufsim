@@ -22,10 +22,10 @@ module Processor
 
     class Generic
 
-        COLUMN_UPDATE = :updates
+        COLUMN_HEIGHT = :height
         COLUMN_TIME = :time
 
-        DEFAULT_COLUMN = [COLUMN_TIME,COLUMN_UPDATE]
+        DEFAULT_COLUMNS = [COLUMN_HEIGHT,COLUMN_TIME]
 
         include Processor
 
@@ -109,13 +109,17 @@ module Processor
             end
         end
 
+        def default_values time
+            [@skiplist.height,time]
+        end 
+
         ## scatter will return one row per update of clients
         def scatter hash
             res = hash.inject([]) do |acc,(time,values)|
-                values.each { |v| acc << [time,v] } 
+                values.each { |v| acc << (default_values(time) << v) } 
                 acc
             end
-            [[COLUMN_TIME,name], res]
+            [DEFAULT_COLUMNS + [name], res]
         end
 
         ## flatten out results by taking the cumulative bandwidth for each timestamp
@@ -130,15 +134,9 @@ module Processor
             values = values = hash.inject([]) do |acc, (time,values) |
                 sum = values.inject(0) { |sum,bw| sum += bw }
                 cumul += sum
-                acc << [time,values.size,cumul]
+                acc << (default_values(time) << values.size << cumul)
             end
-            [[COLUMN_TIME,COLUMN_UPDATE,name], values]
-        end
-
-        def shift_default_value row
-            def_values =  []
-            0.upto(DEFAULT_COLUMN.size-1).each { def_values << row.shift }
-            def_values
+            [DEFAULT_COLUMNS + [:updates,name], values]
         end
 
     end
@@ -223,25 +221,5 @@ module Processor
         end
     end
 
-    ## All regroups Level0, Tuf and Skiplist
-    class All < Processor::Generic
-        require 'set'
-        def process
-            columns = Set.new
-            values = ["Tuf","Diplomat","Height0","Skiplist"].inject([]) do |acc, p|
-                results = Processor::process p, @mockup,@updates, @skiplist, @options
-                columns.merge results.shift 
-                ## take all but the first data (which is the time,only the first
-                #time)
-                results.first.each_with_index do |row,i| 
-                    defs = shift_default_value row
-                    acc[i] =  defs if acc[i].nil?
-                    acc[i] += row
-                end
-                acc
-            end
-            [columns.to_a,values]
-        end
-    end
 
 end
