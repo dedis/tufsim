@@ -68,8 +68,10 @@ module Processor
             h = Hash.new { |h,k| h[k] = [] }
             procs = Etc.nprocessors
             threads = []
-            RubyUtil::partition @updates.keys, procs do |ips|
+            RubyUtil::partition @updates.keys, procs do |ips,i|
+                puts "[+] Starting new thread with #{@ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates" if @options[:v]
                 threads << Thread.new do 
+                    Thread.current[:thread] = i
                     res = process_block_ips(ips)
                     Thread.current[:res] = res
                 end
@@ -106,8 +108,12 @@ module Processor
             ips.each do |ip|
                 tss = @updates[ip]
                 count += 1
-                perc = count.to_f / ipts.size.to_f * 100.0
-                puts "[+] Processing done for #{perc} %" if perc % 1.0 == 0.0 if @options[:v]
+                perc = (count.to_f / ipts.size.to_f * 100.0).round
+                if Thread.current[:thread]
+                    puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" if perc % 25 == 0 if @options[:v]
+                else
+                    puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
+                end
                 #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
                 next if tss.size == 1
                 ## let's calculate each diff
@@ -128,11 +134,11 @@ module Processor
                     base_ts = next_ts
                 end
             end  
-            puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
             h
         end
 
         def format_data hash
+            puts "[+] #{h.keys.size} distinct client updates timestamp found" if @options[:v]
             case @options[:graph]
             when :cumulative
                 flatten hash

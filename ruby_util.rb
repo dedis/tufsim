@@ -32,7 +32,7 @@ module RubyUtil
         return unless block_given?
         # No need for partitionning
         if collection.size <= chunk_size
-            yield collection
+            yield collection, 0
             return
         end
 
@@ -42,12 +42,12 @@ module RubyUtil
         counter.times do |n|
             low = n * chunk_size
             sub = collection.slice(low,chunk_size) 
-            yield sub
+            yield sub,n
         end
         unless rest == 0
             # yield for the rest
             sub = collection.slice( counter*chunk_size, (counter*chunk_size) + rest)
-            yield sub
+            yield sub,counter+1
         end
     end
 
