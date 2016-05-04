@@ -15,16 +15,14 @@ module Skipchain
         ## each will yield each different skiplist according to the options
         def each snapshots
             @options[:height].each do |h|
-                if @options[:base_set] 
-                    @options[:base].each do |b|
-                        yield create_skiplist_normal snapshots,b,h
-                    end
-                elsif @options[:random]
+                if @options[:random]
                     @options[:random].each do |r|
                         yield create_skiplist_random snapshots,r,h
                     end 
                 else
-                    abort("[-] Wrong set of options")
+                    @options[:base].each do |b|
+                        yield create_skiplist_normal snapshots,b,h
+                    end
                 end
             end      
         end
@@ -201,8 +199,12 @@ module Skipchain
         end
 
         def next snapshot, level = 0
+            if level == 0
+                return @skipblocks[@timestamps[snapshot.timestamp]+1] ||
+                    @skipblocks.last
+            end
             ## all the snapshots at this level
-            list_level = @heights[snapshot.height]
+            list_level = @heights[level]
             ## index of the snapshot in this list
             idx = @heights_timestamp[snapshot.timestamp] 
             ## index in the general list of skipblocks
