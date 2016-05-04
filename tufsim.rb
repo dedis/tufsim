@@ -93,7 +93,7 @@ def main
                 ## construct the skiplist out of it
                 skiplist = Skipchain::create_skiplist snaps, config
                 ## fetch and map the client updates
-                updates ||= mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
+                updates = mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
 
                 ## run the processor
                 result  = Processor::process @options[:processor],mockup,updates, skiplist,@options
