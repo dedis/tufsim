@@ -14,20 +14,30 @@ module Skipchain
 
         ## each will yield each different skiplist according to the options
         def each snapshots
-            @options[:height].each do |h|
-                if @options[:random]
-                    @options[:random].each do |r|
-                        yield create_skiplist_random snapshots,r,h
-                    end 
-                else
-                    @options[:base].each do |b|
-                        yield create_skiplist_normal snapshots,b,h
-                    end
+            if @options[:random]
+                heights_base(@options[:random]).each do |h,r|
+                    yield create_skiplist_random snapshots,r,h
                 end
-            end      
+            else
+                heights_base(@options[:random]).each do |h,b|
+                    yield create_skiplist_normal snapshots,b,h
+                end
+            end
         end
 
         private
+
+        # Extend heights of bases to the same number of elements
+        def heights_base params
+            h = @options[:height]
+            b = params
+            if len(h) < len(params)
+                h.push(h.last) while len(h) < len(b)
+            else
+                b.push(b.last) while len(b) < len(h)
+            end
+            h.zip(b)
+        end
 
         def create_skiplist_random snapshots,random,height
             sk = Skipchain::SkiplistRandom.new random,height

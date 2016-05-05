@@ -46,8 +46,11 @@ class CSVStats:
 
     # Returns a Values-object with the requested column.
     # Updates the self.(x|y)(min|max)
-    def get_values(self, column):
+    def get_values(self, column, every=1):
         values = Values(self.x, column, self.columns)
+        if every > 1:
+            values.x = values.x[0::every]
+            values.y = values.y[0::every]
         return values
 
     # get_min_max runs over all values and returns minimum and maximum values
