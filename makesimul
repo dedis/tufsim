@@ -1,12 +1,14 @@
 #!/bin/bash
-SNAP=100000
+#SNAP=100000
 CLIENT=100000
 DATA=local
 #DATA=ssh
 
 mkargs(){
   ARGS="-g $1 -t $DATA"
-  ARGS="$ARGS -s $SNAP -c $CLIENT"
+  if [ "$SNAP" ]; then
+    ARGS="$ARGS -s $SNAP -c $CLIENT"
+  fi
 }
 
 tufsim(){
