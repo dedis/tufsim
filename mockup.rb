@@ -157,7 +157,7 @@ module Mockup
         end
 
         ## retrieve the snapshots info from the 23.5gb compressed files hosted on our server
-        def snapshots head
+        def snapshots 
             abort("[-] Not connected to server") if @ssh.nil?
             compute_snapshots_list do |cmd| 
                 out = @ssh.exec!(cmd) 

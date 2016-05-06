@@ -59,7 +59,7 @@ OptionParser.new do |opts|
     opts.on("-o","--out FILE","File to output result") do |o|
         @options[:out] = o
     end
-    opts.on("-v","--verbose","verbosity enabled") do |v|
+!    opts.on("-v","--verbose","verbosity enabled") do |v|
         @options[:v] = true
     end
     opts.on('-h', '--help', 'Displays Help') do 
@@ -96,7 +96,7 @@ def main
     result = nil
     new_mockup do |mockup|
         ## first get the list of snapshots
-        snaps = mockup.snapshots @options[:snap_head]
+        snaps = mockup.snapshots 
         factory = Skipchain::Factory.new @options
         factory.each(snaps) do |skiplist|
             puts skiplist.stringify
