@@ -118,7 +118,7 @@ module Mockup
             
             ## check if already downloaded
             abort ("[-] No user log file") unless File.exist? @options[:client_file]
-            return analyze_client_update_file(@options[:client_file], mapping,head)
+            return analyze_client_update_file(@options[:client_file], mapping)
         end
 
         def packages_size
