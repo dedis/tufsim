@@ -16,6 +16,27 @@ from stats import CSVStats
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
+sc_plots = []
+sc_random = []
+sc_scatter = []
+for base in ['tuf', 'diplomat', 'height0']:
+    sc_plots.append('cumul_' + base)
+    sc_random.append('random_' + base)
+    sc_scatter.append('scatter_' + base)
+
+sc_titles = ['Linear update', 'Diplomat', 'SkipChain $\mathcal{S}_{1}^{1}$']
+#sc_rand_titles = sc_titles
+sc_rand_titles = ['Linear update', 'Diplomat', 'SkipChain $\mathcal{S}_{1}^{1}$']
+
+for base in ['2_15', '5_7', '7_5', '11_4']:
+    sc_plots.append('cumul_sc_' + base)
+    sc_scatter.append('scatter_sc_' + base)
+    b, h = base.split("_")
+    sc_random.append('random_sc_' + str(round(1.0 / float(b), 3)) + '_' + h)
+    sc_titles.append('SkipChain $\mathcal{S}_{' + b + '}^{' + h + '}$')
+    sc_rand_titles.append(r'SkipChain $\mathcal{S}_{1/' + b + '}^{' + h + '}$')
+
+#print sc_plots, sc_scatter, sc_random
 
 def plotData(data, name,
              xlabel="Time since last update", ylabel="Bandwidth",
@@ -65,8 +86,9 @@ def plotData(data, name,
         xmin = xminu
     if xmaxu != 0:
         xmax = xmaxu
-    plt.ylim(ymin, ymax)
-    plt.xlim(xmin, xmax)
+    if limit:
+        plt.ylim(ymin, ymax)
+        plt.xlim(xmin, xmax)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
 
@@ -81,57 +103,34 @@ def plotData(data, name,
     return data_label
 
 
-sc_plots = []
-sc_random = []
-sc_scatter = []
-for base in ['tuf', 'diplomat', 'height0']:
-    sc_plots.append('cumul_' + base)
-    sc_random.append('random_' + base)
-    sc_scatter.append('scatter_' + base)
-
-sc_titles = ['Linear update', 'Diplomat', 'SkipChain $\mathcal{S}_{1}^{1}$']
-#sc_rand_titles = sc_titles
-sc_rand_titles = ['Linear update', 'Diplomat', 'SkipChain $\mathcal{S}_{1}^{1}$']
-
-for base in ['2_5', '5_5', '11_5', '17_5']:
-    sc_plots.append('cumul_sc_' + base)
-    sc_scatter.append('scatter_sc_' + base)
-    b, h = base.split("_")
-    sc_random.append('random_sc_' + str(round(1.0 / float(b), 3)) + '_' + h)
-    sc_titles.append('SkipChain $\mathcal{S}_{' + b + '}^{' + h + '}$')
-    sc_rand_titles.append(r'SkipChain $\mathcal{S}_{1/' + b + '}^{' + h + '}$')
-
-#print sc_plots, sc_scatter, sc_random
-
 
 # Plot the total bandwidth of all users over the given time
 def plotCumulative():
     plotData([sc_plots[0:3], sc_titles[0:3]],
-             'cumulative_abs', loglog=[0, 10], yminu=1e2, ymaxu=1e6,
+             'cumulative_abs', loglog=[0, ylog], yminu=1e2, ymaxu=1e6,
              restart_x=True, legend_pos="upper left",
-             ymul=1e-6, xmul=1.0 / 86400,
+             ymul=1e-6, xmul=1.0 / yspan,
              ylabel="Total Bandwidth (MBytes)",
-             xlabel="Time since start (d)",
+             xlabel="Time since start (day)",
              markers="x+........", mevery=markevery_plot)
 
 
 def plotCumulativeRandom():
     plotData([sc_random[0:3], sc_rand_titles[0:3]],
-             'cumulative_random_abs', loglog=[0, 10], yminu=1e2, ymaxu=1e6,
+             'cumulative_random_abs', loglog=[0, ylog], yminu=1e2, ymaxu=1e6,
              restart_x=True, legend_pos="upper left",
-             ymul=1e-6, xmul=1.0 / 86400,
+             ymul=1e-6, xmul=1.0 / yspan,
              ylabel="Total Bandwidth (MBytes)",
-             xlabel="Time since start (d)",
+             xlabel="Time since start (day)",
              markers="x+........", mevery=markevery_plot)
 
-
 def plotCumulDiff(plots=sc_plots, titles=sc_titles, name='cumulative_diff'):
-    mplot.plotPrepareLogLog(0, 10)
+    mplot.plotPrepareLogLog(0, ylog)
     plot_show(name)
     plt.ylabel('SkipChain Bandwidth (MBytes)')
-    plt.xlabel('Time since start (d)')
+    plt.xlabel('Time since start (day)')
     data = read_csvs_xname("time", *plots)
-    styles = ["-"] * 4 + [":"] * 2 + ["--"] * 1 + ["-."] * 1
+    styles = ["-"] * 4 + [":"] * 2 + ["--"] * 1 + ["-."] * 5
     subx = data[0].x[0]
     xmax = 0
     ymax = 0
@@ -141,7 +140,7 @@ def plotCumulDiff(plots=sc_plots, titles=sc_titles, name='cumulative_diff'):
         yname = "diff_bandwidth"
         data[index].columns_sub(data[1], "bandwidth", yname)
         data[index].column_add("time", -subx)
-        data[index].column_mul("time", 1.0 / 86400)
+        data[index].column_mul("time", 1.0 / yspan)
         data[index].column_mul(yname, 1e-6)
         data[index].get_values("time")
         xmax = max(xmax, max(data[index].x))
@@ -149,14 +148,15 @@ def plotCumulDiff(plots=sc_plots, titles=sc_titles, name='cumulative_diff'):
         plt.plot(data[index].x, data[index].columns[yname], markevery=markevery_plot,
                  label=label, color=colors[index], linestyle=styles[index])
     plt.legend(loc="upper left")
-    plt.xlim(0, xmax)
-    plt.ylim(1)
+    if limit:
+        plt.xlim(0, xmax)
+        plt.ylim(1)
     mplot.plotEnd()
 
 
 # Plots a scatterplot of all users
 def plotScatter(diff=False):
-    mplot.plotPrepareLogLog(0, 10)
+    mplot.plotPrepareLogLog(0, ylog)
     if diff:
         plot_show('scatter_diff')
     else:
@@ -167,7 +167,7 @@ def plotScatter(diff=False):
     else:
         plt.ylabel('Total Bandwidth (MBytes)')
 
-    plt.xlabel('Time since last update (d)')
+    plt.xlabel('Time since last update (day)')
     data = read_csvs_xname("time", *sc_scatter)
     yname = "bandwidth"
     styles = "x+^^^^o.vo"
@@ -184,18 +184,19 @@ def plotScatter(diff=False):
                 continue
 
         plot.column_mul(yname, 1e-6)
-        plot.column_mul("time", 1.0 / 86400)
+        plot.column_mul("time", 1.0 / yspan)
         y = plot.get_values(yname, markevery_scatter)
         ranges.append(y)
         plt.scatter(y.x, y.y, label=label,
                     color=colors[index], marker=styles[index], zorder=-index)
     plt.legend(loc="upper left")
     xmin, xmax, ymin, ymax = CSVStats.get_min_max(*ranges)
-    plt.xlim(0, xmax)
-    if diff:
-      plt.ylim(1e-3, ymax)
-    else:
-      plt.ylim(1, ymax)
+    if limit:
+        plt.xlim(0, xmax)
+        if diff:
+            plt.ylim(1e-3, ymax)
+        else:
+            plt.ylim(1, ymax)
     mplot.plotEnd()
 
 
@@ -250,13 +251,30 @@ file_extension = 'png'
 # Show figure
 mplot.show_fig = False
 # mplot.show_fig = True
-markevery_plot = 200
-markevery_scatter = 20
+if False:
+    markevery_plot = 200
+    markevery_scatter = 20
+    yspan = 86400
+    ylog = 10
+    limit = True
+else:
+    markevery_plot = 1
+    markevery_scatter = 1
+    yspan = 1
+    ylog = 0
+    limit = False
+
+plots = ['cumul_tuf', 'cumul_diplomat', 'cumul_height0']
+labels = [1, 2, 'S 1/1']
+for name in [3, 5, 7, 9, 11]:
+    plots.append('cumul_sc_5_' + str(name))
+    labels.append('S 5/' + str(name))
 
 # Call all plot-functions
-plotCumulative()
-plotCumulativeRandom()
-plotCumulDiff()
-plotScatter()
-plotScatter(True)
-plotCumulDiff(sc_random, sc_rand_titles, 'cumulative_random_diff')
+# plotCumulative()
+# plotCumulativeRandom()
+# plotCumulDiff()
+# plotScatter()
+# plotScatter(True)
+# plotCumulDiff(sc_random, sc_rand_titles, 'cumulative_random_diff')
+plotCumulDiff(plots, labels, 'cumulative_five_diff')
