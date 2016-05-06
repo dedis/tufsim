@@ -7,7 +7,7 @@ DATA=local
 
 tufsim(){
   FNAME=$1.csv
-  ARGS="$PRC -g $GRP -t $DATA -i $HEIGHTS"
+  ARGS="$PRC -g $GRP -t $DATA -i $HEIGHTS -t ssh"
   if [ "$CLT" ]; then
     ARGS="$ARGS -s $SNAP -c $CLT"
   fi

@@ -56,52 +56,68 @@ module RubyUtil
     #
     def self.slice collection, slice_number 
         return collection unless block_given?
-        # No need for partitioning
-        if collection.size <= slice_number
-            yield collection, 0
-            return
-        end
 
         size_chunk = collection.size / slice_number
-        size_rest = collection.size - (slice_number * size_chunk) 
-        puts "RubyUtil::slice size_chunk= #{size_chunk} & rest #{size_rest}"
+        size_rest = collection.size % slice_number
         # yield for each "slice"
         (slice_number-1).times do |n|
             low = n * size_chunk
-            sub = collection.slice(low,slice_number)
+            sub = collection.slice(low,size_chunk)
             yield sub,n
         end
-        low = slice_number * size_chunk
-        sub = collection.slice(low,size_rest)
+        low = (slice_number-1) * size_chunk
+        high = low + size_chunk + size_rest
+        sub = collection.slice(low,high)
         yield sub,slice_number
     end
 
 
-    #module UnitsTest
-        #require 'test/unit'
-        #class TestRubyUtil < Test::Unit::TestCase
+    module UnitsTest
+        require 'test/unit'
+        class TestRubyUtil < Test::Unit::TestCase
 
-        #def test_partition
-            #a = (0...100).to_a 
-            #times = 0
-            #RubyUtil::partition a,25 do |col,i|
-                #assert_equal(25,col.size)
-                #assert(times < 4)
-                #assert(times == i)
-                #times += 1
-            #end
+#            def test_slice
+#                a = (0...100).to_a
+#                times = 0
+#                a.each_slice(4).each_with_index do |col,i|
+#                    puts "(#{i} : #{col.size}"
+#                    assert_equal(i,times)
+#                    assert(times < 4)
+#                    times += i
+#                end
+        
+#                a = (0...120).to_a
+#                times = 0
+#                RubyUtil::slice a,4 do |col,i|
+#                    assert_equal(i,times)
+#                    assert(times < 5)
+#                    assert(col.size == 20) if i == 4
+#                    times += 1
+#                end
 
-            #a = (0...120).to_a
-            #times = 0
-            #RubyUtil::partition a,25 do |col,i|
-                #assert_equal(times,i)
-                #assert(times < 5)
-                #assert(col.size == 20) if i == 4
-                #times += 1
+#            end
+            ## SHOULD NOT WORK !
+            #def test_partition_slice
+                #a = (0...100).to_a 
+                #times = 0
+                #RubyUtil::partition_by_size a,25 do |col,i|
+                    #assert_equal(25,col.size)
+                    #assert(times < 4)
+                    #assert(times == i)
+                    #times += 1
+                #end
+
+                #a = (0...120).to_a
+                #times = 0
+                #RubyUtil::partition_by_size a,25 do |col,i|
+                    #assert_equal(times,i)
+                    #assert(times < 5)
+                    #assert(col.size == 20) if i == 4
+                    #times += 1
+                #end
             #end
-        #end
-    #end
-    #end
+        end
+    end
 
     ## Can symbolize keys of a Hash, or every elements of an Array
     # Can apply a preprocessing step on the element with :send opts,
