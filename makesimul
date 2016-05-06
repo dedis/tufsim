@@ -1,6 +1,6 @@
 #!/bin/bash
-SNAP=10000
-CLIENT=5000
+#SNAP=10000
+CLIENT=50000
 DATA=local
 #DATA=ssh
 
@@ -43,6 +43,7 @@ sim_scatter(){
 }
 
 sim_five(){
+  FILE=cumul
   mkargs cumulative
   sim_sc 5 3,5,9,11
 }
@@ -52,7 +53,7 @@ sim_random(){
   tufsim random diplomat
   tufsim random tuf
   tufsim random height0
-  tufsim random_sc skiplist -r 1.0/2,1.0/5,1.0/11,1.0/17 -i 15,7,5,4
+  tufsim random_sc skiplist -r 1.0/2,1.0/5,1.0/7,1.0/11 -i 15,7,5,4
 }
 
 sim_cumul

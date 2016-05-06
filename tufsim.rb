@@ -24,7 +24,7 @@ OptionParser.new do |opts|
         @options[:base] = b.map(&:to_i)
         @options[:base_set] = true
     end
-    opts.on("-i","--heigh h1,h2,h3",Array, "Maximum height of the skiplist") do |h|
+    opts.on("-i","--height h1,h2,h3",Array, "Maximum height of the skiplist") do |h|
         @options[:height] = h.map(&:to_i)
     end
     opts.on("-s","--snapshot-head NUMBER","Takes only the first NUMBER snapshots") do |n|

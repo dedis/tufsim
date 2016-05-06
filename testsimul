@@ -1,0 +1,89 @@
+#!/bin/bash
+OUT=/dev/null
+#OUT=/dev/stdout
+SNAP=10000
+DATA=local
+#DATA=ssh
+
+tufsim(){
+  FNAME=$1.csv
+  ARGS="$PRC -g $GRP -t $DATA -i $HEIGHTS"
+  if [ "$CLT" ]; then
+    ARGS="$ARGS -s $SNAP -c $CLT"
+  fi
+  if [ "$BASE" ]; then
+    ARGS="$ARGS -b $BASE"
+  fi 
+  if [ "$RND" ]; then
+    ARGS="$ARGS -r $RND"
+  fi 
+  echo Running ./tufsim.rb $ARGS $THR -o $FNAME
+  if ! ./tufsim.rb $ARGS $THR -o $FNAME > $OUT; then
+    echo Tufsim failed
+    exit
+  fi
+}
+
+compare(){
+  F1=${1}_$3.csv
+  F2=${2}_$3.csv
+  echo Comparing $F1 with $F2
+  if [ "$(diff $F1 $F2)" ]; then
+    echo "ERROR: Diff is producing something!"
+    #exit
+  fi
+}
+
+rndstr(){
+  case $1 in
+  2) echo 0.5
+     ;;
+  3) echo 0.333
+     ;;
+  5) echo 0.2
+     ;;
+  7) echo 0.143
+     ;;
+  11) echo 0.091
+     ;;
+  *) echo "Unknown fraction!" > /dev/stderr
+     exit
+     ;;
+  esac
+}
+
+rm *csv
+PRC=skiplist
+for GRP in cumulative scatter; do
+	for CLT in 5000; do
+	  THR=""
+	  for HEIGHTS in 2 7; do
+	    RND=""
+	    BASE="2,3,5,7,11"
+	    tufsim multi
+	    BASE=""
+	    RND="1.0/2,1.0/3,1.0/5,1.0/7,1.0/11"
+	    tufsim multi_rnd
+	    for B in 2 5; do
+	      RND=""
+	      BASE=$B
+	      tufsim single
+	      compare single multi ${BASE}_$HEIGHTS
+	      BASE=""
+	      RND="1.0/$B"
+	      tufsim single_rnd
+	      compare single_rnd multi_rnd $(rndstr $B)_$HEIGHTS
+	    done
+	  done
+	  THR="--threads"
+	  for HEIGHTS in 2 7; do
+	    BASE="2,3,7,11"
+	    tufsim multi_thr
+	    for BASE in 2 5; do
+	      tufsim single_thr
+	      compare single_thr multi_thr ${HEIGHTS}_$BASE
+	      compare single multi_thr ${HEIGHTS}_$BASE
+	    done
+	  done
+	done
+done

@@ -19,7 +19,7 @@ module Skipchain
                     yield create_skiplist_random snapshots,r,h
                 end
             else
-                heights_base(@options[:random]).each do |h,b|
+                heights_base(@options[:base]).each do |h,b|
                     yield create_skiplist_normal snapshots,b,h
                 end
             end
@@ -31,10 +31,10 @@ module Skipchain
         def heights_base params
             h = @options[:height]
             b = params
-            if len(h) < len(params)
-                h.push(h.last) while len(h) < len(b)
+            if h.size < params.size
+                h.push(h.last) while h.size < b.size
             else
-                b.push(b.last) while len(b) < len(h)
+                b.push(b.last) while b.size < h.size
             end
             h.zip(b)
         end
