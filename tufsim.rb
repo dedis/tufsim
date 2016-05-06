@@ -50,6 +50,12 @@ OptionParser.new do |opts|
     opts.on("--threads","Using multithreading (best use with JRuby!") do |th|
         @options[:threads] = true
     end
+    opts.on("--client-file FILE","Client request file to analyze") do |f|
+        @options[:client_file] = f
+    end
+    opts.on("--folder PATH","Folder path where to find the files => FOLDER/{client-file,snapshots***.json,packages/packages***.json}") do |b|
+        @options[:folder] = b
+    end
     opts.on("-o","--out FILE","File to output result") do |o|
         @options[:out] = o
     end
@@ -93,9 +99,9 @@ def main
         snaps = mockup.snapshots @options[:snap_head]
         factory = Skipchain::Factory.new @options
         factory.each(snaps) do |skiplist|
-            #puts skiplist.stringify
+            puts skiplist.stringify
             ## fetch and map the client updates
-            updates = mockup.client_updates skiplist.mapping_client_update(),@options[:client_head]
+            updates = mockup.client_updates skiplist.mapping_client_update()
 
             ## run the processor
             result  = Processor::process @options[:processor],mockup,updates, skiplist,@options

@@ -151,8 +151,8 @@ module Skipchain
 
         def stringify 
             @skipblocks.each_with_index.inject("") do |sum,(blk,i)| 
-                sum += i.to_s + "\t: " + blk.to_s + "\n"
-                sum += "\t: |\n"
+                sum += i.to_s + "\t: " + blk.timestamp.to_s + "\t" + blk.to_s + "\n"
+                sum += "\t: \t|\n"
             end
         end
 

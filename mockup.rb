@@ -8,11 +8,8 @@ Struct.new("ClientUpdate",:ip,:timestamps)
 module Mockup
     HOST = "icsil1-conode1"
     USER = "root"
-    SNAPSHOT_PATH = "/root/tuf/"
-    PACKAGES_PATH = SNAPSHOT_PATH + "packages/"
-    LOCAL_PACKAGES_SIZE = "packages_size.txt"
-    REMOTE_USER_FILE= "/root/tuf-client/sorted.packages.log.4.ts-ip"
-    LOCAL_USER_FILE = "sorted_user.ts-ip.log"
+    DEFAULT_BASE_PATH = "/root/tuf"
+    DEFAULT_CLIENT_FILE= "sorted.packages.log.4.ts-ip"
 
 
     @@aborting = lambda { abort("[-] Not connected to server") }
@@ -21,7 +18,8 @@ module Mockup
     ## Give it a block that receives the command and execute it (locally or
     #  whatever)
     def compute_packages_size 
-        cmd = "cd #{PACKAGES_PATH} && ls | xargs stat -c '%n %s'"
+        cmd = "cd #{@options[:packages_files]} && ls | xargs stat -c '%n %s'"
+        
         output = yield cmd
         @packages = {}
         output.each_line do |line|
@@ -32,12 +30,13 @@ module Mockup
         @packages
     end
 
-    def compute_snapshots_list head = nil
+    def compute_snapshots_list 
         @snapshots ||= begin
                            snapshots = []
+                           head = @options[:snap_head] 
                            output = ""
                            ## print the size and shorten the name to only the timestamp
-                           cmd = "cd #{SNAPSHOT_PATH} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
+                           cmd = "cd #{@options[:snapshot_files]} && " + 'ls *json' # sed "s/snapshot\.\(.*\)\.json/\1/"'
                            output = yield cmd
                            ## populate the list of snapshots
                            snapshots = []
@@ -47,15 +46,16 @@ module Mockup
                                snapshots << Struct::Snapshot.new(time.to_i,fname.chomp)
                            end
                            puts "[+] #{snapshots.size} snapshots retrieved from server"
-                           snapshots
+                           snapshots.sort! { |a,b| a.timestamp <=> b.timestamp }
                        end
     end
 
     ## store in memory the update of all clients
-    def analyze_client_update_file  fname, mapping, head = nil
+    def analyze_client_update_file  fname, mapping 
         @clientsMap ||=
             begin
                 abort("[-] Client log file absent.") unless File.exists? fname
+                head = @options[:client_head]
                 ## hash[ip] = timestamps
                 clientsMap = Hash.new { |h,k| h[k] = [] }
                 countUpdate = 0
@@ -91,6 +91,15 @@ module Mockup
 
     def initialize opts
         @options = opts
+        if opts[:type] == :ssh
+            base = @options[:folder] || Mockup::DEFAULT_BASE_PATH
+        elsif opts[:type] == :local
+            base = @options[:folder] || Dir.pwd
+        end
+        @options[:client_file] = File.join(base,@options[:client_file] || DEFAULT_CLIENT_FILE)
+        abort("[-] client file does not exists") if @options[:type] == :local && File.exists?(@options[:client_file])
+        @options[:snapshot_files] = base
+        @options[:packages_files] = File.join(base,"packages")
     end
 
     class Local
@@ -98,17 +107,18 @@ module Mockup
 
         require 'diffy'
 
-        def snapshots head = nil
-            compute_snapshots_list(head) { |cmd| `#{cmd}` }
+        def snapshots
+            compute_snapshots_list { |cmd| `#{cmd}` }
         end
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil,head = nil
+        def client_updates mapping = nil
             mapping = lambda { |x| x } if mapping.nil?
+            
             ## check if already downloaded
-            abort ("[-] No user log file") unless File.exist? REMOTE_USER_FILE
-            return analyze_client_update_file(REMOTE_USER_FILE, mapping,head)
+            abort ("[-] No user log file") unless File.exist? @options[:client_file]
+            return analyze_client_update_file(@options[:client_file], mapping,head)
         end
 
         def packages_size
@@ -119,7 +129,8 @@ module Mockup
         #  packages that must be updated (i.e. downloaded) => returns # bytes
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
-            diff = Diffy::Diff.new(File.join(SNAPSHOT_PATH,s1.name),File.join(SNAPSHOT_PATH,s2.name),:source => "files", :context => 1)
+            snap_path = @options[:snapshot_files]
+            diff = Diffy::Diff.new(File.join(snap_path,s1.name),File.join(snap_path,s2.name),:source => "files", :context => 1)
             mockup_get_diff_size diff.to_s.each_line
         end
 
@@ -148,7 +159,7 @@ module Mockup
         ## retrieve the snapshots info from the 23.5gb compressed files hosted on our server
         def snapshots head
             abort("[-] Not connected to server") if @ssh.nil?
-            compute_snapshots_list(head) do |cmd| 
+            compute_snapshots_list do |cmd| 
                 out = @ssh.exec!(cmd) 
                 out
             end
@@ -157,15 +168,15 @@ module Mockup
         ## retrieve the client updates info, stores it locally
         ## you need to give a function that returns the correct timestamp
         ## normally that would be the one nearest from an update
-        def client_updates mapping = nil,head = nil
+        def client_updates mapping = nil
             mapping = lambda { |x| x } if mapping.nil?
             ## check if already downloaded
-
-            return analyze_client_update_file(LOCAL_USER_FILE, mapping,head) if File.exist? LOCAL_USER_FILE
+            fname = File.basename(@options[:client_file])
+            return analyze_client_update_file(fname, mapping) if File.exist? fname
             ## otherwise download it
-            puts "[+] SSH - downloading client log"
-            Net::SCP.download!(HOST,USER,REMOTE_USER_FILE,LOCAL_USER_FILE)
-            return analyze_client_update_file(LOCAL_USER_FILE,mapping,head)
+            puts "[+] SSH - downloading client log into #{fname}"
+            Net::SCP.download!(HOST,USER,@options[:client_file],fname)
+            return analyze_client_update_file(fname,mapping)
         end
 
         ## packages_size will load the sizes of all packages/* in memory
@@ -181,9 +192,11 @@ module Mockup
         #  NOTE: snap1.timestamp < snap2.timestamp
         def get_diff_size s1,s2
             @@aborting.call unless @ssh                
-            diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{s1.name} #{s2.name}"
-            cmd = "cd #{SNAPSHOT_PATH} && #{diffCmd}" 
-            out = @ssh.exec!(cmd) 
+            folder = @options[:snapshot_files]
+            n1 = File.join(folder,s1.name)
+            n2 = File.join(folder,s2.name)
+            diffCmd = "diff -dbwB --unified=0 --suppress-common-lines #{n1} #{n2}"
+            out = @ssh.exec!(diffCmd) 
             mockup_get_diff_size out.each_line
         end
 
