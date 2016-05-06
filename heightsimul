@@ -1,0 +1,38 @@
+#!/bin/bash
+SNAP=10000
+CLIENT=100000
+DATA=local
+#DATA=ssh
+
+mkargs(){
+  ARGS="-g $1 -t $DATA"
+  if [ "$SNAP" ]; then
+    ARGS="$ARGS -s $SNAP -c $CLIENT"
+  fi
+}
+
+tufsim(){
+  FNAME=$1.csv
+  shift
+  echo
+  echo Creating $FNAME $ARGS
+  time ./tufsim.rb $@ $ARGS -o $FNAME
+  date
+}
+
+sim_sc(){
+  BASE=$1
+  EXP=$2
+  tufsim ${FILE}_sc skiplist -b $BASE -i $EXP
+}
+
+sim_height(){
+  FILE=cumul
+  mkargs cumulative
+  tufsim $FILE diplomat
+  for base in 2 3 5 7 11; do
+    sim_sc $base 1,2,3,4,5,6,7,8
+  done
+}
+
+sim_height
