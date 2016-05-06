@@ -77,12 +77,23 @@ for GRP in cumulative scatter; do
 	  done
 	  THR="--threads"
 	  for HEIGHTS in 2 7; do
-	    BASE="2,3,7,11"
+	    RND=""
+	    BASE="2,3,5,7,11"
 	    tufsim multi_thr
-	    for BASE in 2 5; do
+	    BASE=""
+	    RND="1.0/2,1.0/3,1.0/5,1.0/7,1.0/11"
+	    tufsim multi_rnd_thr
+	    for B in 2 5; do
+	      RND=""
+	      BASE=$B
 	      tufsim single_thr
-	      compare single_thr multi_thr ${HEIGHTS}_$BASE
-	      compare single multi_thr ${HEIGHTS}_$BASE
+	      compare single_thr multi_thr ${BASE}_$HEIGHTS
+	      compare single multi_thr ${BASE}_$HEIGHTS
+	      BASE=""
+	      RND="1.0/$B"
+	      tufsim single_rnd_thr
+	      compare single_rnd_thr multi_rnd_thr $(rndstr $B)_$HEIGHTS
+	      compare single_rnd multi_rnd_thr $(rndstr $B)_$HEIGHTS
 	    done
 	  done
 	done
