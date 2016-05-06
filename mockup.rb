@@ -97,7 +97,7 @@ module Mockup
             base = @options[:folder] || Dir.pwd
         end
         @options[:client_file] = File.join(base,@options[:client_file] || DEFAULT_CLIENT_FILE)
-        abort("[-] client file does not exists : #{@options[:client_file]}") if @options[:type] == :local && File.exists?(@options[:client_file])
+        abort("[-] client file does not exists : #{@options[:client_file]}") if @options[:type] == :local && !File.exists?(@options[:client_file])
         @options[:snapshot_files] = base
         @options[:packages_files] = File.join(base,"packages")
     end
