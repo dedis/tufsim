@@ -91,6 +91,8 @@ module Processor
 
         ## process_block using one thread
         def process_block_mono &block
+            ips = @updates.keys
+            puts "[+] Starting MONOLITIC processing  with #{ips.inject(0){ |acc,ip| acc += @updates[ip].size}} updates for #{ips.size} clients" if @options[:v]
             res = process_block_ips @updates.keys, &block
             res = Hash[res.sort]
             format_data res
@@ -118,9 +120,9 @@ module Processor
                 ok = perc == perc.round && perc.round % 25 == 0
                 if ok && @options[:v]
                     if Thread.current[:thread]
-                        puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" 
+#                        puts "[+] Thread #{Thread.current[:thread]} processed #{perc} % of its data" 
                     else
-                        puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
+#                        puts "[+] Processing done for #{perc} %" if perc % 25 == 0 if @options[:v]
                     end
                 end
                 #puts "[+] Treating client #{count}/#{@updates.size} with #{tss.size} timestamps" if @options[:v]
