@@ -214,10 +214,14 @@ module Processor
             res = process_block do |base_snap, next_snap|
                 bytes_diff = 0
                 curr_snap = base_snap
+                count = 0
                 loop do
                     intermediate = @skiplist.next(curr_snap,0)
-                    bytes_diff += get_diff curr_snap,intermediate
+                    local_diff =  get_diff curr_snap,intermediate
+                    bytes_diff += local_diff
+                    puts "Diff between #{curr_snap.timestamp} -> #{intermediate.timestamp} = #{local_diff} (#{count}) => #{bytes_diff}"
                     curr_snap = intermediate
+                    count += 1
                     break if intermediate == next_snap
                 end
                 bytes_diff
@@ -230,6 +234,7 @@ module Processor
         def process
             res  = process_block do |base_snap, next_snap|
                 # simply get the diff between the two
+                puts "Diff between #{base_snap.timestamp} -> #{next_snap.timestamp} = #{get_diff(base_snap,next_snap)}"
                 get_diff base_snap,next_snap
             end
         end
